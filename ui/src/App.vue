@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   clearLibraryGames,
   loadControlBindings,
@@ -60,6 +60,8 @@ const RESERVED_CONTROL_CODES = new Set([
 const romInput = ref(null);
 const canvasRef = ref(null);
 const gameStageRef = ref(null);
+const libraryRef = ref(null);
+const libraryScrollPosition = ref({ y: 0, container: 0 });
 const games = ref([]);
 const activeGame = ref(null);
 const selectedGameId = ref(null);
@@ -256,6 +258,21 @@ function clearLibraryFilters() {
   libraryFormat.value = "all";
   librarySort.value = "recent";
   libraryGroup.value = "none";
+}
+
+function saveLibraryScrollPosition() {
+  libraryScrollPosition.value = {
+    y: window.scrollY,
+    container: libraryRef.value ? libraryRef.value.scrollTop : 0,
+  };
+}
+
+function restoreLibraryScrollPosition() {
+  const { y, container } = libraryScrollPosition.value;
+  if (libraryRef.value) {
+    libraryRef.value.scrollTop = container;
+  }
+  window.scrollTo(0, y);
 }
 
 function scheduleErrorToastExpiry(delay) {
@@ -1427,6 +1444,16 @@ async function toggleFullscreen() {
   }
 }
 
+watch(activeGame, (newGame, oldGame) => {
+  if (oldGame === null && newGame !== null) {
+    // Saiu da biblioteca para abrir um jogo: lembra onde o usuário estava.
+    saveLibraryScrollPosition();
+  } else if (oldGame !== null && newGame === null) {
+    // Voltou à biblioteca: restaura a posição depois de remontar a seção.
+    nextTick(() => restoreLibraryScrollPosition());
+  }
+});
+
 onMounted(() => {
   window.addEventListener("keydown", handleGlobalKeydown);
   window.addEventListener("keyup", handlePlayerKeyup);
@@ -1577,7 +1604,11 @@ onBeforeUnmount(() => {
       @change="addRom"
     />
 
-    <section v-if="!activeGame" class="library-page">
+    <section
+      ref="libraryRef"
+      v-if="!activeGame"
+      class="library-page"
+    >
       <div class="library-heading">
         <div>
           <p class="eyebrow">SUA COLEÇÃO</p>

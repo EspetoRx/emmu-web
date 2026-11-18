@@ -312,24 +312,19 @@ async function generateThumbnails() {
 
   for (const game of games.value) {
     try {
-      // Abre o jogo
       await openGame(game);
       if (game.romUnavailable) {
         completed++;
         continue;
       }
 
-      // Aguarda um pouco para a tela estabilizar
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Tenta capturar a preview da canvas
       if (canvasRef.value) {
         try {
           canvasRef.value.toBlob((blob) => {
             if (blob) {
-              // Cria um object URL e atribui ao jogo
               const previewUrl = URL.createObjectURL(blob);
-              // Atualiza o jogo na biblioteca
               saveLibraryGame({ ...game, preview, previewUrl });
             }
           }, "image/png");
@@ -340,7 +335,6 @@ async function generateThumbnails() {
     } catch (error) {
       console.error("Error generating thumbnail for", game.name, error);
     } finally {
-      // Volta à biblioteca
       returnToLibrary();
       completed++;
     }
@@ -1544,10 +1538,8 @@ async function toggleFullscreen() {
 
 watch(activeGame, (newGame, oldGame) => {
   if (oldGame === null && newGame !== null) {
-    // Saiu da biblioteca para abrir um jogo: lembra onde o usuário estava.
     saveLibraryScrollPosition();
   } else if (oldGame !== null && newGame === null) {
-    // Voltou à biblioteca: restaura a posição depois de remontar a seção.
     nextTick(() => restoreLibraryScrollPosition());
   }
 });
@@ -2003,9 +1995,6 @@ onBeforeUnmount(() => {
           ✕
         </button>
       </div>
-      <p v-if="resumedFromSave || stateSaveStatus" class="player-state-status" role="status">
-        {{ stateSaveStatus || `Continuando estado salvo${activeGame.stateSavedAt ? ` de ${formatSavedTime(activeGame.stateSavedAt)}` : ""}.` }}
-      </p>
 
       <div ref="gameStageRef" class="game-stage">
         <canvas
@@ -2360,7 +2349,8 @@ onBeforeUnmount(() => {
       </section>
     </div>
 
-    <footer class="statusbar">
+    <!-- Barra de Status inferior com texto diminuído -->
+    <footer class="statusbar" style="font-size: 0.75rem; padding: 4px 12px;">
       <span><span class="status-dot"></span> Emmu</span>
       <span>{{ activeGame ? activeGame.fileName : "Biblioteca local" }}</span>
     </footer>

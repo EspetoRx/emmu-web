@@ -69,19 +69,65 @@ function runTransaction(storeName, mode, operation) {
 }
 
 export async function loadLibraryGames() {
-  return runTransaction(GAME_STORE, "readonly", (store, setResult) => {
+  const records = await runTransaction(GAME_STORE, "readonly", (store, setResult) => {
     const request = store.getAll();
     request.onsuccess = () => setResult(request.result.sort((a, b) => b.addedAt - a.addedAt));
   });
+
+  return records.map((game) => {
+    let rom = game.rom;
+    if (rom instanceof ArrayBuffer) {
+      rom = new Blob([rom], { type: "application/octet-stream" });
+    }
+    let state = game.state;
+    if (state instanceof ArrayBuffer) {
+      state = new Blob([state], { type: "application/octet-stream" });
+    }
+    let preview = game.preview;
+    if (preview instanceof ArrayBuffer) {
+      preview = new Blob([preview], { type: "image/png" });
+    }
+    let saveHistory = Array.isArray(game.saveHistory)
+      ? game.saveHistory.map((h) => {
+          let s = h.state;
+          if (s instanceof ArrayBuffer) {
+            s = new Blob([s], { type: "application/octet-stream" });
+          }
+          return { ...h, state: s };
+        })
+      : [];
+    return { ...game, rom, state, preview, saveHistory };
+  });
 }
 
-export function saveLibraryGame(game) {
+export async function saveLibraryGame(game) {
   const { previewUrl, ...record } = game;
+  
+  let rom = record.rom;
+  if (rom instanceof Blob || rom instanceof File) {
+    rom = await rom.arrayBuffer();
+  }
+  let state = record.state;
+  if (state instanceof Blob) {
+    state = await state.arrayBuffer();
+  }
+  let preview = record.preview;
+  if (preview instanceof Blob) {
+    preview = await preview.arrayBuffer();
+  }
+
   const saveHistory = Array.isArray(record.saveHistory)
-    ? record.saveHistory.map(({ state, savedAt }) => ({ state, savedAt }))
+    ? await Promise.all(record.saveHistory.map(async ({ state: hState, savedAt }) => {
+        let hs = hState;
+        if (hs instanceof Blob) hs = await hs.arrayBuffer();
+        return { state: hs, savedAt };
+      }))
     : [];
+
+  const cleanRecord = { ...record, rom, state, preview, saveHistory };
+
   return runTransaction(GAME_STORE, "readwrite", (store) => {
-    store.put({ ...record, saveHistory });
+    store.put(cleanRecord);
   });
 }
 
@@ -97,35 +143,69 @@ export function clearLibraryGames() {
   });
 }
 
-export function saveGameProgress(id, progress, { recordHistory = true } = {}) {
+export async function saveGameProgress(id, progress, { recordHistory = true } = {}) {
+  let state = progress.state;
+  if (state instanceof Blob) {
+    state = await state.arrayBuffer();
+  }
+  let preview = progress.preview;
+  if (preview instanceof Blob) {
+    preview = await preview.arrayBuffer();
+  }
+  const cleanProgress = { ...progress, ...(state ? { state } : {}), ...(preview ? { preview } : {}) };
+
   return runTransaction(GAME_STORE, "readwrite", (store, setResult, fail) => {
     const request = store.get(id);
     request.onerror = () => {
       fail(request.error ?? new Error("Falha ao ler o progresso salvo."));
     };
-    request.onsuccess = () => {
+    request.onsuccess = async () => {
       const current = request.result;
       if (!current) {
         fail(new Error("O jogo não foi encontrado na biblioteca local."));
         return;
       }
 
-      const saveHistory = Array.isArray(current.saveHistory)
-        ? current.saveHistory
-        : [];
-      const history = recordHistory && current.state && current.stateSavedAt
-        ? [{ state: current.state, savedAt: current.stateSavedAt }, ...saveHistory]
+      let currentState = current.state;
+      if (currentState instanceof Blob) {
+        currentState = await currentState.arrayBuffer();
+      }
+
+      const saveHistory = Array.isArray(current.saveHistory) ? current.saveHistory : [];
+      const history = recordHistory && currentState && current.stateSavedAt
+        ? [{ state: currentState, savedAt: current.stateSavedAt }, ...saveHistory]
         : saveHistory;
+
       const updated = {
         ...current,
-        ...progress,
+        ...cleanProgress,
         saveHistory: history.slice(0, MAX_SAVE_HISTORY),
       };
+
       const writeRequest = store.put(updated);
       writeRequest.onerror = () => {
         fail(writeRequest.error ?? new Error("Falha ao gravar o progresso do jogo."));
       };
-      setResult(updated);
+
+      let finalRom = updated.rom;
+      if (finalRom instanceof ArrayBuffer) finalRom = new Blob([finalRom]);
+      let finalState = updated.state;
+      if (finalState instanceof ArrayBuffer) finalState = new Blob([finalState]);
+      let finalPreview = updated.preview;
+      if (finalPreview instanceof ArrayBuffer) finalPreview = new Blob([finalPreview]);
+      let finalHistory = (updated.saveHistory || []).map((h) => {
+        let s = h.state;
+        if (s instanceof ArrayBuffer) s = new Blob([s]);
+        return { ...h, state: s };
+      });
+
+      setResult({
+        ...updated,
+        rom: finalRom,
+        state: finalState,
+        preview: finalPreview,
+        saveHistory: finalHistory,
+      });
     };
   });
 }

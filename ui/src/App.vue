@@ -301,6 +301,54 @@ function clearLibraryFilters() {
   libraryGroup.value = "none";
 }
 
+async function generateThumbnails() {
+  if (games.length === 0) {
+    setAppError("Nenhum jogo na biblioteca.");
+    return;
+  }
+
+  const total = games.length;
+  let completed = 0;
+
+  for (const game of games.value) {
+    try {
+      // Abre o jogo
+      await openGame(game);
+      if (game.romUnavailable) {
+        completed++;
+        continue;
+      }
+
+      // Aguarda um pouco para a tela estabilizar
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // Tenta capturar a preview da canvas
+      if (canvasRef.value) {
+        try {
+          canvasRef.value.toBlob((blob) => {
+            if (blob) {
+              // Cria um object URL e atribui ao jogo
+              const previewUrl = URL.createObjectURL(blob);
+              // Atualiza o jogo na biblioteca
+              saveLibraryGame({ ...game, preview, previewUrl });
+            }
+          }, "image/png");
+        } catch (error) {
+          console.error("Could not capture thumbnail for", game.name, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error generating thumbnail for", game.name, error);
+    } finally {
+      // Volta à biblioteca
+      returnToLibrary();
+      completed++;
+    }
+  }
+
+  setAppError(`Miniaturas geradas: ${completed} de ${total} jogos`);
+}
+
 function saveLibraryScrollPosition() {
   libraryScrollPosition.value = {
     y: window.scrollY,
@@ -1416,6 +1464,9 @@ function handleGlobalKeydown(event) {
   } else if ((event.metaKey || event.ctrlKey) && event.key === "1") {
     event.preventDefault();
     returnToLibrary();
+  } else if (event.metaKey && (event.key === "T" || event.key === "t")) {
+    event.preventDefault();
+    generateThumbnails();
   } else if (event.key === "Escape") {
     openMenu.value = null;
     showHelp.value = false;

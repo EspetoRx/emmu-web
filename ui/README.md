@@ -19,8 +19,9 @@ Both run with keyboard or touchscreen controls. The library, game previews, and
 automatic save states are stored in IndexedDB. Progress is checkpointed every
 five seconds, when returning to the library, and when the app is backgrounded.
 Use **Salvar estado** for a manual checkpoint and **Continuar** on a saved game
-card to resume it. The library keeps the ten most recent previous saves for
-each game under **Histórico**; a save that cannot be loaded offers a clean
+card to resume it. Automatic checkpoints update the latest state without
+filling the history. **Histórico** keeps the ten most recent previous manual
+saves for each game; a save that cannot be loaded offers a clean
 restart or a return to the library to choose an earlier save. Double-clicking
 a saved card also resumes its last state. Card icons open save history, continue
 an available save, or permanently delete the game and its saves after confirmation.

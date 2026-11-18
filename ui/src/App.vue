@@ -103,6 +103,7 @@ let nextEmulationFrameAt = 0;
 let lastFrameAt = 0;
 let lastCheckpointAt = 0;
 let checkpointPromise = null;
+let checkpointRecordsHistory = false;
 let emulationGeneration = 0;
 let gameLoadGeneration = 0;
 let restartGeneration = 0;
@@ -772,33 +773,58 @@ function capturePreview() {
   });
 }
 
-async function saveCurrentProgress() {
-  if (!snesCore || !activeGame.value) return;
-  if (checkpointPromise) return checkpointPromise;
-
-  const gameId = activeGame.value.id;
+async function saveCurrentProgress({ recordHistory = false } = {}) {
+  const game = activeGame.value;
   const core = snesCore;
+  if (!core || !game) return;
+  if (checkpointPromise) {
+    const pendingCheckpoint = checkpointPromise;
+    const pendingRecordsHistory = checkpointRecordsHistory;
+    await pendingCheckpoint;
+    if (!recordHistory || pendingRecordsHistory) return;
+    if (snesCore !== core || activeGame.value !== game) return;
+  }
+
+  const gameId = game.id;
   const progressPromise = (async () => {
     const state = new Blob([await core.saveState()], { type: "application/octet-stream" });
-    const preview = await capturePreview();
-    const stateSavedAt = Date.now();
-    const savedGame = await saveGameProgress(gameId, { state, preview, stateSavedAt });
-
-    const game = games.value.find((candidate) => candidate.id === gameId);
-    if (game) {
-      if (game.previewUrl) URL.revokeObjectURL(game.previewUrl);
-      game.preview = preview;
-      game.previewUrl = URL.createObjectURL(preview);
-      game.state = state;
-      game.stateSavedAt = stateSavedAt;
-      game.saveHistory = savedGame.saveHistory;
+    let preview = game.preview ?? null;
+    let refreshedPreview = null;
+    if (canvasRef.value) {
+      try {
+        refreshedPreview = await capturePreview();
+        preview = refreshedPreview;
+      } catch (error) {
+        console.warn("Could not refresh the game preview while saving progress:", error);
+      }
     }
+    const stateSavedAt = Date.now();
+    const progress = { state, stateSavedAt };
+    if (preview) progress.preview = preview;
+    const savedGame = await saveGameProgress(
+      gameId,
+      progress,
+      { recordHistory },
+    );
+
+    if (refreshedPreview) {
+      if (game.previewUrl) URL.revokeObjectURL(game.previewUrl);
+      game.preview = refreshedPreview;
+      game.previewUrl = URL.createObjectURL(refreshedPreview);
+    }
+    game.state = state;
+    game.stateSavedAt = stateSavedAt;
+    game.saveHistory = savedGame.saveHistory;
   })();
   checkpointPromise = progressPromise;
+  checkpointRecordsHistory = recordHistory;
   try {
     await progressPromise;
   } finally {
-    if (checkpointPromise === progressPromise) checkpointPromise = null;
+    if (checkpointPromise === progressPromise) {
+      checkpointPromise = null;
+      checkpointRecordsHistory = false;
+    }
   }
 }
 
@@ -812,7 +838,7 @@ async function saveGameState() {
   isSavingState.value = true;
   stateSaveStatus.value = "Salvando estado...";
   try {
-    await saveCurrentProgress();
+    await saveCurrentProgress({ recordHistory: true });
     const savedTime = new Intl.DateTimeFormat("pt-BR", {
       hour: "2-digit",
       minute: "2-digit",
@@ -853,7 +879,7 @@ async function restoreHistoricalSave(game, save) {
     const savedGame = await saveGameProgress(game.id, {
       state: save.state,
       stateSavedAt: save.savedAt,
-    });
+    }, { recordHistory: true });
     game.state = savedGame.state;
     game.stateSavedAt = savedGame.stateSavedAt;
     game.saveHistory = savedGame.saveHistory;

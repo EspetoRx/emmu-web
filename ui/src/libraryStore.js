@@ -48,9 +48,13 @@ function runTransaction(storeName, mode, operation) {
           database.close();
           resolve(result);
         };
-        transaction.onerror = () => {
+        transaction.onerror = (event) => {
           database.close();
-          reject(transaction.error ?? new Error("Falha ao acessar a biblioteca local."));
+          reject(
+            event.target?.error ??
+              transaction.error ??
+              new Error("Falha ao acessar a biblioteca local."),
+          );
         };
         transaction.onabort = () => {
           database.close();
@@ -87,9 +91,12 @@ export function deleteLibraryGame(id) {
   });
 }
 
-export function saveGameProgress(id, progress) {
+export function saveGameProgress(id, progress, { recordHistory = true } = {}) {
   return runTransaction(GAME_STORE, "readwrite", (store, setResult, fail) => {
     const request = store.get(id);
+    request.onerror = () => {
+      fail(request.error ?? new Error("Falha ao ler o progresso salvo."));
+    };
     request.onsuccess = () => {
       const current = request.result;
       if (!current) {
@@ -100,7 +107,7 @@ export function saveGameProgress(id, progress) {
       const saveHistory = Array.isArray(current.saveHistory)
         ? current.saveHistory
         : [];
-      const history = current.state && current.stateSavedAt
+      const history = recordHistory && current.state && current.stateSavedAt
         ? [{ state: current.state, savedAt: current.stateSavedAt }, ...saveHistory]
         : saveHistory;
       const updated = {
@@ -108,7 +115,10 @@ export function saveGameProgress(id, progress) {
         ...progress,
         saveHistory: history.slice(0, MAX_SAVE_HISTORY),
       };
-      store.put(updated);
+      const writeRequest = store.put(updated);
+      writeRequest.onerror = () => {
+        fail(writeRequest.error ?? new Error("Falha ao gravar o progresso do jogo."));
+      };
       setResult(updated);
     };
   });

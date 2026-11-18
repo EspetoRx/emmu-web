@@ -91,6 +91,12 @@ export function deleteLibraryGame(id) {
   });
 }
 
+export function clearLibraryGames() {
+  return runTransaction(GAME_STORE, "readwrite", (store) => {
+    store.clear();
+  });
+}
+
 export function saveGameProgress(id, progress, { recordHistory = true } = {}) {
   return runTransaction(GAME_STORE, "readwrite", (store, setResult, fail) => {
     const request = store.get(id);

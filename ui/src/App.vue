@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import {
+  clearLibraryGames,
   loadControlBindings,
   loadLibraryGames,
   deleteLibraryGame,
@@ -83,8 +84,10 @@ const showHelp = ref(false);
 const recoveryPrompt = ref(null);
 const historyGame = ref(null);
 const deletePrompt = ref(null);
+const clearLibraryPrompt = ref(false);
 const isRestoringSave = ref(false);
 const isDeletingGame = ref(false);
+const isClearingLibrary = ref(false);
 const audioVolume = ref(0.7);
 const showAudioControls = ref(false);
 const audioErrorMessage = ref("");
@@ -1202,6 +1205,31 @@ function requestDeleteGame(game) {
   deletePrompt.value = game;
 }
 
+function requestClearLibrary() {
+  clearLibraryPrompt.value = true;
+}
+
+async function confirmClearLibrary() {
+  if (isClearingLibrary.value) return;
+
+  isClearingLibrary.value = true;
+  try {
+    await clearLibraryGames();
+    for (const game of games.value) {
+      if (game.previewUrl) URL.revokeObjectURL(game.previewUrl);
+    }
+    games.value = [];
+    selectedGameId.value = null;
+    clearLibraryPrompt.value = false;
+  } catch (error) {
+    console.error("Could not clear the game library:", error);
+    clearLibraryPrompt.value = false;
+    setAppError(`Não foi possível limpar a biblioteca: ${errorText(error)}`);
+  } finally {
+    isClearingLibrary.value = false;
+  }
+}
+
 async function confirmDeleteGame() {
   const game = deletePrompt.value;
   if (!game || isDeletingGame.value) return;
@@ -1505,6 +1533,13 @@ onBeforeUnmount(() => {
               <span>Adicionar jogos…</span>
               <kbd>⌘ O</kbd>
             </button>
+            <button
+              v-if="games.length"
+              class="menu-item"
+              @click="openMenu = null; requestClearLibrary()"
+            >
+              <span>Limpar biblioteca…</span>
+            </button>
           </div>
         </div>
 
@@ -1549,10 +1584,19 @@ onBeforeUnmount(() => {
           <h1>Biblioteca de jogos</h1>
           <p class="subtitle">Seus clássicos, reunidos em um só lugar.</p>
         </div>
-        <button class="primary-button" @click="openFilePicker">
-          <span class="plus-icon">＋</span>
-          Abrir arquivos
-        </button>
+        <div class="library-heading-actions">
+          <button
+            v-if="games.length"
+            class="secondary-button clear-library-button"
+            @click="requestClearLibrary"
+          >
+            Limpar biblioteca
+          </button>
+          <button class="primary-button" @click="openFilePicker">
+            <span class="plus-icon">＋</span>
+            Abrir arquivos
+          </button>
+        </div>
       </div>
 
       <div v-if="games.length" class="library-toolbar">
@@ -2065,6 +2109,43 @@ onBeforeUnmount(() => {
         <p v-else class="save-history-empty">
           Ainda não há saves anteriores. Novos checkpoints serão guardados aqui.
         </p>
+      </section>
+    </div>
+
+    <div
+      v-if="clearLibraryPrompt"
+      class="modal-backdrop"
+      @click.self="clearLibraryPrompt = false"
+    >
+      <section
+        class="recovery-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="clear-library-title"
+        aria-describedby="clear-library-description"
+      >
+        <p class="eyebrow">LIMPAR BIBLIOTECA</p>
+        <h2 id="clear-library-title">Limpar toda a biblioteca?</h2>
+        <p id="clear-library-description">
+          Todos os {{ games.length }} {{ games.length === 1 ? 'jogo' : 'jogos' }} e seus estados salvos serão removidos permanentemente. Esta ação não pode ser desfeita.
+        </p>
+        <div class="controls-dialog-actions">
+          <button
+            class="secondary-button"
+            :disabled="isClearingLibrary"
+            @click="clearLibraryPrompt = false"
+          >
+            Cancelar
+          </button>
+          <span class="dialog-action-spacer"></span>
+          <button
+            class="primary-button delete-confirm-button"
+            :disabled="isClearingLibrary"
+            @click="confirmClearLibrary"
+          >
+            {{ isClearingLibrary ? "Limpando..." : "Limpar biblioteca" }}
+          </button>
+        </div>
       </section>
     </div>
 

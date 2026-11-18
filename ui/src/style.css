@@ -256,6 +256,26 @@ kbd {
   margin-bottom: 22px;
 }
 
+.library-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.clear-library-button {
+  border: 1px solid rgba(238, 120, 120, 0.28);
+  background: rgba(220, 60, 60, 0.12);
+  color: #fca5a5;
+  font-weight: 600;
+}
+
+.clear-library-button:hover {
+  border-color: rgba(238, 120, 120, 0.5);
+  background: rgba(220, 60, 60, 0.22);
+  color: #fff;
+}
+
 .library-toolbar {
   display: flex;
   align-items: center;

@@ -71,6 +71,46 @@ const librarySearch = ref("");
 const libraryFormat = ref("all");
 const librarySort = ref("recent");
 const libraryGroup = ref("none");
+
+const LIBRARY_FILTERS_STORAGE_KEY = "emmu.library.filters";
+
+function loadLibraryFilters() {
+  try {
+    const raw = window.localStorage.getItem(LIBRARY_FILTERS_STORAGE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (typeof saved.search === "string") librarySearch.value = saved.search;
+    if (["all", "nes", "snes"].includes(saved.format)) libraryFormat.value = saved.format;
+    if (
+      ["recent", "oldest", "name-asc", "name-desc", "size-asc", "size-desc", "format", "saved"].includes(
+        saved.sort,
+      )
+    ) {
+      librarySort.value = saved.sort;
+    }
+    if (["none", "similar-titles", "console", "format", "save"].includes(saved.group)) {
+      libraryGroup.value = saved.group;
+    }
+  } catch (error) {
+    console.error("Could not load saved library filters:", error);
+  }
+}
+
+function saveLibraryFilters() {
+  try {
+    window.localStorage.setItem(
+      LIBRARY_FILTERS_STORAGE_KEY,
+      JSON.stringify({
+        search: librarySearch.value,
+        format: libraryFormat.value,
+        sort: librarySort.value,
+        group: libraryGroup.value,
+      }),
+    );
+  } catch (error) {
+    console.error("Could not save library filters:", error);
+  }
+}
 const errorToast = ref(null);
 const controlErrorMessage = ref("");
 const controlSaveStatus = ref("");
@@ -1461,7 +1501,16 @@ watch(activeGame, (newGame, oldGame) => {
   }
 });
 
+watch(
+  [librarySearch, libraryFormat, librarySort, libraryGroup],
+  () => {
+    saveLibraryFilters();
+  },
+  { deep: false },
+);
+
 onMounted(() => {
+  loadLibraryFilters();
   window.addEventListener("keydown", handleGlobalKeydown);
   window.addEventListener("keyup", handlePlayerKeyup);
   window.addEventListener("blur", handleWindowBlur);

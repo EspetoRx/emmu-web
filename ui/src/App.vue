@@ -62,6 +62,7 @@ const canvasRef = ref(null);
 const gameStageRef = ref(null);
 const libraryRef = ref(null);
 const libraryScrollPosition = ref({ y: 0, container: 0 });
+const awaitingRomRecovery = ref(null);
 const games = ref([]);
 const activeGame = ref(null);
 const selectedGameId = ref(null);
@@ -475,8 +476,8 @@ function coverHue(name) {
 
 async function addRomFile(file) {
   const extension = file.name.split(".").pop()?.toLowerCase();
-  if (!["nes", "sfc", "smc"].includes(extension)) {
-    throw new Error("Formato não suportado. Selecione arquivos .nes, .sfc ou .smc.");
+  if (!["nes", "sfc", "smc", "fig"].includes(extension)) {
+    throw new Error("Formato não suportado. Selecione arquivos .nes, .sfc, .smc ou .fig.");
   }
 
   const contents = await file.arrayBuffer();
@@ -498,6 +499,11 @@ async function addRomFile(file) {
     await saveLibraryGame(updatedGame);
     Object.assign(existingGame, updatedGame);
     selectedGameId.value = existingGame.id;
+
+    if (awaitingRomRecovery.value?.id === existingGame.id) {
+      awaitingRomRecovery.value = null;
+      await openGame(existingGame);
+    }
     return;
   }
 
@@ -1091,7 +1097,8 @@ function emulationTick(generation) {
 
 async function openGame(game) {
   if (game.romUnavailable) {
-    setAppError(`A ROM "${game.fileName}" não está disponível. Reimporte o arquivo para continuar.`);
+    awaitingRomRecovery.value = game;
+    openFilePicker();
     return;
   }
 
@@ -1582,7 +1589,7 @@ onBeforeUnmount(() => {
           </button>
           <div v-if="openMenu === 'ajuda'" class="menu-popover help-popover">
             <p>Adicione uma ou mais ROMs e dê dois cliques no cartão para abrir o jogo.</p>
-            <p>Formatos reconhecidos: NES, SNES.</p>
+            <p>Formatos reconhecidos: NES, SNES, FIG.</p>
           </div>
         </div>
       </div>
@@ -1598,7 +1605,7 @@ onBeforeUnmount(() => {
       class="visually-hidden"
       type="file"
       multiple
-      accept=".nes,.sfc,.smc"
+      accept=".nes,.sfc,.smc,.fig"
       aria-label="Abrir arquivos de jogos"
       tabindex="-1"
       @change="addRom"
@@ -1807,7 +1814,7 @@ onBeforeUnmount(() => {
         <button class="secondary-button" @click="openFilePicker">
           Escolher arquivos
         </button>
-        <span class="supported-formats">Compatível com .nes, .sfc e .smc</span>
+        <span class="supported-formats">Compatível com .nes, .sfc, .smc e .fig</span>
       </div>
     </section>
 
@@ -2034,7 +2041,7 @@ onBeforeUnmount(() => {
         <p>Use Arquivo → Abrir arquivos para adicionar ROMs à biblioteca.</p>
         <p>{{ isMobileDevice ? "Toque em um cartão para abrir o jogo." : "Dê dois cliques em um cartão para abrir o jogo." }}</p>
         <p>Controles: setas, Z/X/A/S, Q/W, Enter e Shift. No celular, use os botões na tela.</p>
-        <p class="supported-formats">Formatos aceitos pela interface: .nes, .sfc e .smc.</p>
+        <p class="supported-formats">Formatos aceitos pela interface: .nes, .sfc, .smc e .fig.</p>
         <button class="secondary-button" @click="showHelp = false">Fechar</button>
       </section>
     </div>

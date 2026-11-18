@@ -1,0 +1,30 @@
+{
+  "name": "emmu-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "predev": "npm run build:wasm",
+    "dev": "vite",
+    "prebuild": "npm run build:wasm",
+    "build": "vite build",
+    "build:wasm": "cd ../../../crates/emmu-snes && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm --out-name emmu_snes && cd ../emmu-nes && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm/nes --out-name emmu_nes",
+    "preview": "vite preview",
+    "desktop:dev": "cd ../../desktop && cargo tauri dev",
+    "desktop:build": "cd ../../desktop && cargo tauri build",
+    "mobile:android:init": "cd ../../desktop && cargo tauri android init",
+    "mobile:android:dev": "cd ../../desktop && cargo tauri android dev",
+    "mobile:android:build": "cd ../../desktop && cargo tauri android build",
+    "mobile:ios:init": "cd ../../desktop && cargo tauri ios init",
+    "mobile:ios:dev": "cd ../../desktop && cargo tauri ios dev",
+    "mobile:ios:build": "cd ../../desktop && cargo tauri ios build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.2.0",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.0.7"
+  }
+}

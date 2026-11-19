@@ -122,6 +122,7 @@ const {
   canvasRef,
   hasCore,
   frameHeight,
+  stateSaveStatus,
   isPlaying,
   isSavingState,
   isRestarting,
@@ -336,6 +337,6 @@ onBeforeUnmount(() => {
     <RecoveryDialog :prompt="recoveryPrompt" :is-restarting="isRestarting" @dismiss="dismissRecoveryPrompt"
       @restart="restartGame" />
 
-    <StatusBar :active-game="activeGame" />
+    <StatusBar :active-game="activeGame" :save-status="stateSaveStatus" />
   </main>
 </template>

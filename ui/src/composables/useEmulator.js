@@ -12,6 +12,14 @@ function errorText(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function formatClockTime(date = new Date()) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
 export function useEmulator({
   activeGame,
   selectedGameId,
@@ -113,7 +121,10 @@ export function useEmulator({
     );
   }
 
-  async function saveCurrentProgress({ recordHistory = false } = {}) {
+  async function saveCurrentProgress({
+    recordHistory = false,
+    showStatus = false,
+  } = {}) {
     const game = activeGame.value;
     const core = snesCore;
     if (!core || !game) return;
@@ -158,6 +169,13 @@ export function useEmulator({
       game.state = state;
       game.stateSavedAt = stateSavedAt;
       game.saveHistory = savedGame.saveHistory;
+
+      if (showStatus && snesCore === core && activeGame.value?.id === gameId) {
+        const savedTime = formatClockTime(new Date(stateSavedAt));
+        stateSaveStatus.value = recordHistory
+          ? `Salvo manualmente às ${savedTime}`
+          : `Autosave às ${savedTime}`;
+      }
     })();
 
     checkpointPromise = progressPromise;
@@ -177,13 +195,7 @@ export function useEmulator({
     isSavingState.value = true;
     stateSaveStatus.value = "Salvando estado...";
     try {
-      await saveCurrentProgress({ recordHistory: true });
-      const savedTime = new Intl.DateTimeFormat("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }).format(new Date());
-      stateSaveStatus.value = `Estado salvo às ${savedTime}.`;
+      await saveCurrentProgress({ recordHistory: true, showStatus: true });
     } catch (error) {
       handleCheckpointError(error);
       stateSaveStatus.value = "";
@@ -274,11 +286,7 @@ export function useEmulator({
   }
 
   function emulationTick(generation) {
-    if (
-      generation !== emulationGeneration ||
-      !snesCore ||
-      !activeGame.value
-    )
+    if (generation !== emulationGeneration || !snesCore || !activeGame.value)
       return;
 
     const core = snesCore;
@@ -306,12 +314,13 @@ export function useEmulator({
         );
         if (frameStartedAt - lastCheckpointAt >= CHECKPOINT_INTERVAL) {
           lastCheckpointAt = frameStartedAt;
-          void saveCurrentProgress().catch(handleCheckpointError);
+          void saveCurrentProgress({ showStatus: true }).catch(
+            handleCheckpointError,
+          );
         }
       })
       .catch((error) => {
-        if (generation !== emulationGeneration || core !== snesCore)
-          return;
+        if (generation !== emulationGeneration || core !== snesCore) return;
         console.error("Game emulation stopped:", error);
         onSetPlayerError?.(`A emulação foi interrompida: ${errorText(error)}`);
         stopEmulationLoop();
@@ -649,6 +658,7 @@ export function useEmulator({
     isPlaying.value = false;
     activeGame.value = null;
     resumedFromSave.value = false;
+    stateSaveStatus.value = "";
     onClearPlayerError?.();
     openMenu.value = null;
     onReturnToLibraryCleanup?.();
@@ -667,6 +677,7 @@ export function useEmulator({
     isPlaying.value = false;
     activeGame.value = null;
     resumedFromSave.value = false;
+    stateSaveStatus.value = "";
     onClearPlayerError?.();
   }
 

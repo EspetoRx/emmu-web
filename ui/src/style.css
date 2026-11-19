@@ -1625,3 +1625,23 @@ p {
     transition-duration: 0.01ms !important;
   }
 }
+
+.game-card.is-blocked {
+  filter: grayscale(100%) contrast(0.9);
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.game-card.is-blocked .game-card-open,
+.game-card.is-blocked .game-card-open * {
+  cursor: not-allowed;
+  pointer-events: none;
+  user-select: none;
+}
+
+.game-card.is-blocked .game-card-action-button.delete {
+  filter: none;
+  opacity: 1;
+  cursor: pointer;
+  pointer-events: auto;
+}

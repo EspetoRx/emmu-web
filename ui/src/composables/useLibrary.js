@@ -74,7 +74,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
           case "size-desc":
             return (second.size ?? 0) - (first.size ?? 0) || nameOrder;
           case "format":
-            return first.format.localeCompare(second.format, "pt-BR") || nameOrder;
+            return (
+              first.format.localeCompare(second.format, "pt-BR") || nameOrder
+            );
           case "oldest":
             return (first.addedAt ?? 0) - (second.addedAt ?? 0) || nameOrder;
           case "saved":
@@ -153,15 +155,27 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (typeof saved.search === "string") librarySearch.value = saved.search;
-      if (["all", "nes", "snes"].includes(saved.format)) libraryFormat.value = saved.format;
+      if (["all", "nes", "snes"].includes(saved.format))
+        libraryFormat.value = saved.format;
       if (
-        ["recent", "oldest", "name-asc", "name-desc", "size-asc", "size-desc", "format", "saved"].includes(
-          saved.sort,
-        )
+        [
+          "recent",
+          "oldest",
+          "name-asc",
+          "name-desc",
+          "size-asc",
+          "size-desc",
+          "format",
+          "saved",
+        ].includes(saved.sort)
       ) {
         librarySort.value = saved.sort;
       }
-      if (["none", "similar-titles", "console", "format", "save"].includes(saved.group)) {
+      if (
+        ["none", "similar-titles", "console", "format", "save"].includes(
+          saved.group,
+        )
+      ) {
         libraryGroup.value = saved.group;
       }
     } catch (error) {
@@ -216,7 +230,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
   async function addRomFile(file) {
     const extension = file.name.split(".").pop()?.toLowerCase();
     if (!["nes", "sfc", "smc", "fig"].includes(extension)) {
-      throw new Error("Formato não suportado. Selecione arquivos .nes, .sfc, .smc ou .fig.");
+      throw new Error(
+        "Formato não suportado. Selecione arquivos .nes, .sfc, .smc ou .fig.",
+      );
     }
 
     const contents = await file.arrayBuffer();
@@ -235,6 +251,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
         size: file.size,
         rom,
         romUnavailable: false,
+        launchBlocked: false,
       };
       await saveLibraryGame(updatedGame);
       Object.assign(existingGame, updatedGame);
@@ -274,7 +291,10 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       try {
         await addRomFile(file);
       } catch (error) {
-        console.error(`Could not add ROM "${file.name}" to the game library:`, error);
+        console.error(
+          `Could not add ROM "${file.name}" to the game library:`,
+          error,
+        );
         failures.push(`${file.name}: ${errorText(error)}`);
       }
     }

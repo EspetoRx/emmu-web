@@ -1,3 +1,5 @@
+
+/* platforms/web/ui/src/workers/snes.worker.js */
 import initializeWasm, { SnesEmulator } from "./../wasm/emmu_snes.js";
 import initializeNesWasm, { NesEmulator } from "./../wasm/nes/emmu_nes.js";
 

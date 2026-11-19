@@ -1,5 +1,5 @@
 <script setup>
-defineProps({
+const props = defineProps({
   game: {
     type: Object,
     required: true,
@@ -35,15 +35,53 @@ function formatSavedTime(timestamp) {
     minute: "2-digit",
   }).format(new Date(timestamp));
 }
+
+function handleSelect() {
+  if (props.game.launchBlocked) return;
+  emit("select", props.game);
+}
+
+function handleOpen() {
+  if (props.game.launchBlocked) return;
+  emit("open", props.game);
+}
+
+function handleContinue() {
+  if (props.game.launchBlocked) return;
+  emit("continue", props.game);
+}
+
+function handleOpenHistory() {
+  if (props.game.launchBlocked) return;
+  emit("open-history", props.game);
+}
 </script>
 
 <template>
-  <article class="game-card" :class="{ selected }">
-    <button class="game-card-open"
-      :aria-label="`${game.name}, ${game.format}. ${game.romUnavailable ? 'ROM indisponível. Reimporte o arquivo.' : game.state ? 'Continuar estado salvo.' : isMobileDevice ? 'Toque para abrir.' : 'Dê dois cliques para abrir.'}`"
-      @click="emit('select', game)" @dblclick="emit('open', game)" @keydown.enter.prevent="emit('open', game)">
-      <div class="cover-art" :class="{ 'has-preview': Boolean(game.previewUrl) }" :style="{ '--cover-hue': game.hue }"
-        aria-hidden="true">
+  <article
+    class="game-card"
+    :class="{ selected: selected && !game.launchBlocked, 'is-blocked': game.launchBlocked }"
+  >
+    <button
+      class="game-card-open"
+      type="button"
+      :disabled="game.launchBlocked"
+      :aria-disabled="game.launchBlocked ? 'true' : undefined"
+      :aria-label="
+        game.launchBlocked
+          ? `${game.name}, ${game.format}. Não foi possível iniciar a emulação.`
+          : `${game.name}, ${game.format}. ${game.romUnavailable ? 'ROM indisponível. Reimporte o arquivo.' : game.state ? 'Continuar estado salvo.' : isMobileDevice ? 'Toque para abrir.' : 'Dê dois cliques para abrir.'}`
+      "
+      @click="handleSelect"
+      @dblclick="handleOpen"
+      @keydown.enter.prevent="handleOpen"
+    >
+      <div
+        class="cover-art"
+        :class="{ 'has-preview': Boolean(game.previewUrl) }"
+        :style="{ '--cover-hue': game.hue }"
+        aria-hidden="true"
+      >
         <img v-if="game.previewUrl" class="cover-preview" :src="game.previewUrl" alt="" />
         <template v-else>
           <div class="cover-sun"></div>
@@ -60,43 +98,67 @@ function formatSavedTime(timestamp) {
       </span>
       <span class="card-hint">
         {{
-          game.romUnavailable
-            ? "ROM indisponível · reimporte o arquivo"
-            : game.state
-              ? "Continuar estado salvo"
-              : isMobileDevice
-                ? "Toque para abrir"
-                : "Dois cliques para abrir"
+          game.launchBlocked
+            ? "Falha ao iniciar emulação"
+            : game.romUnavailable
+              ? "ROM indisponível · reimporte o arquivo"
+              : game.state
+                ? "Continuar estado salvo"
+                : isMobileDevice
+                  ? "Toque para abrir"
+                  : "Dois cliques para abrir"
         }}
       </span>
     </button>
+
     <div class="game-card-actions">
-      <span class="game-card-status" :class="{ unavailable: game.romUnavailable }">
+      <span class="game-card-status" :class="{ unavailable: game.romUnavailable || game.launchBlocked }">
         {{
-          game.romUnavailable
-            ? "ROM indisponível"
-            : game.state
-              ? `Estado salvo${game.stateSavedAt ? ` às ${formatSavedTime(game.stateSavedAt)}` : ""}`
-              : "Sem estado salvo"
+          game.launchBlocked
+            ? "Não executável"
+            : game.romUnavailable
+              ? "ROM indisponível"
+              : game.state
+                ? `Estado salvo${game.stateSavedAt ? ` às ${formatSavedTime(game.stateSavedAt)}` : ""}`
+                : "Sem estado salvo"
         }}
       </span>
+
       <div class="game-card-action-buttons">
-        <button class="game-card-action-button"
+        <button
+          v-if="!game.launchBlocked"
+          class="game-card-action-button"
+          type="button"
           :aria-label="`Histórico de saves de ${game.name} (${game.saveHistory?.length ?? 0})`"
-          :title="`Histórico de saves (${game.saveHistory?.length ?? 0})`" @click.stop="emit('open-history', game)">
+          :title="`Histórico de saves (${game.saveHistory?.length ?? 0})`"
+          @click.stop="handleOpenHistory"
+        >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" />
             <path d="M3 3v5h5m4-1v5l3 2" />
           </svg>
         </button>
-        <button v-if="game.state" class="game-card-action-button continue" :aria-label="`Continuar ${game.name}`"
-          title="Continuar" @click.stop="emit('continue', game)">
+
+        <button
+          v-if="!game.launchBlocked && game.state"
+          class="game-card-action-button continue"
+          type="button"
+          :aria-label="`Continuar ${game.name}`"
+          title="Continuar"
+          @click.stop="handleContinue"
+        >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="m8 5 12 7-12 7z" />
           </svg>
         </button>
-        <button class="game-card-action-button delete" :aria-label="`Excluir ${game.name}`" title="Excluir"
-          @click.stop="emit('delete', game)">
+
+        <button
+          class="game-card-action-button delete"
+          type="button"
+          :aria-label="`Excluir ${game.name}`"
+          title="Excluir"
+          @click.stop="emit('delete', game)"
+        >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3" />
           </svg>

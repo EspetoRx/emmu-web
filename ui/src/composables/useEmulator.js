@@ -468,6 +468,14 @@ export function useEmulator({
 
   async function openGame(game, { skipScrollCapture = false } = {}) {
     console.log("[openGame] início:", game.name, game.format);
+    if (game.launchBlocked) {
+      return;
+    }
+    if (game.romUnavailable) {
+      awaitingRomRecovery.value = game;
+      openFilePicker?.();
+      return;
+    }
     if (!skipScrollCapture && !activeGame.value) {
       onBeforeOpenGame?.();
     }
@@ -651,6 +659,19 @@ export function useEmulator({
           `A ROM "${game.fileName}" não está mais acessível. Reimporte o arquivo para continuar.`,
         );
       } else {
+        const blockedGame = {
+          ...game,
+          launchBlocked: true,
+        };
+        Object.assign(game, blockedGame);
+        try {
+          await saveLibraryGame(blockedGame);
+        } catch (persistError) {
+          console.error(
+            "Could not mark the game as launch-blocked in the library:",
+            persistError,
+          );
+        }
         onSetAppError?.(`Não foi possível iniciar o jogo: ${errorText(error)}`);
       }
     }

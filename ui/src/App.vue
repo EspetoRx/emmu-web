@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { saveLibraryGame } from "./stores/libraryStore.js";
 import { useToast } from "./composables/useToast.js";
 import { useControls } from "./composables/useControls.js";
@@ -24,12 +24,34 @@ const gameStageRef = ref(null);
 const activeGame = ref(null);
 const openMenu = ref(null);
 const showHelp = ref(false);
+const libraryScrollY = ref(0);
+const isGeneratingThumbnails = ref(false);
 
 const isNativeApp = "__TAURI_INTERNALS__" in window;
 const isMobileDevice =
   /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
   (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const isNativeDesktop = isNativeApp && !isMobileDevice;
+
+function captureLibraryScroll() {
+  if (typeof window === "undefined") return;
+  if (isGeneratingThumbnails.value) return;
+  if (!activeGame.value) {
+    libraryScrollY.value = window.scrollY || window.pageYOffset || 0;
+  }
+}
+
+async function restoreLibraryScroll() {
+  if (typeof window === "undefined") return;
+  if (isGeneratingThumbnails.value) return;
+  await nextTick();
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  window.scrollTo({
+    top: libraryScrollY.value,
+    left: 0,
+    behavior: "instant",
+  });
+}
 
 const {
   errorToast,
@@ -152,6 +174,8 @@ const {
   awaitingRomRecovery,
   openMenu,
   openFilePicker,
+  onBeforeOpenGame: captureLibraryScroll,
+  onAfterReturnToLibrary: restoreLibraryScroll,
   onReturnToLibraryCleanup: () => {
     showHelp.value = false;
   },
@@ -195,40 +219,52 @@ async function generateThumbnails() {
     return;
   }
 
+  const savedScrollBeforeBatch =
+    typeof window !== "undefined"
+      ? window.scrollY || window.pageYOffset || libraryScrollY.value || 0
+      : libraryScrollY.value;
+  libraryScrollY.value = savedScrollBeforeBatch;
+  isGeneratingThumbnails.value = true;
+
   const total = games.value.length;
   let completed = 0;
 
-  for (const game of [...games.value]) {
-    try {
-      await openGame(game);
-      if (game.romUnavailable) {
-        completed++;
-        continue;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      if (canvasRef.value) {
-        try {
-          const preview = await capturePreview();
-          const previewUrl = URL.createObjectURL(preview);
-          await saveLibraryGame({ ...game, preview, previewUrl });
-          if (game.previewUrl) URL.revokeObjectURL(game.previewUrl);
-          game.preview = preview;
-          game.previewUrl = previewUrl;
-        } catch (error) {
-          console.error("Could not capture thumbnail for", game.name, error);
+  try {
+    for (const game of [...games.value]) {
+      try {
+        await openGame(game);
+        if (game.romUnavailable) {
+          completed++;
+          continue;
         }
-      }
-    } catch (error) {
-      console.error("Error generating thumbnail for", game.name, error);
-    } finally {
-      await returnToLibrary();
-      completed++;
-    }
-  }
 
-  setAppError(`Miniaturas geradas: ${completed} de ${total} jogos`);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        if (canvasRef.value) {
+          try {
+            const preview = await capturePreview();
+            const previewUrl = URL.createObjectURL(preview);
+            await saveLibraryGame({ ...game, preview, previewUrl });
+            if (game.previewUrl) URL.revokeObjectURL(game.previewUrl);
+            game.preview = preview;
+            game.previewUrl = previewUrl;
+          } catch (error) {
+            console.error("Could not capture thumbnail for", game.name, error);
+          }
+        }
+      } catch (error) {
+        console.error("Error generating thumbnail for", game.name, error);
+      } finally {
+        await returnToLibrary();
+        completed++;
+      }
+    }
+
+    setAppError(`Miniaturas geradas: ${completed} de ${total} jogos`);
+  } finally {
+    isGeneratingThumbnails.value = false;
+    await restoreLibraryScroll();
+  }
 }
 
 const {
@@ -310,9 +346,9 @@ onBeforeUnmount(() => {
       v-model:group="libraryGroup" :games="games" :filtered-games="filteredGames" :grouped-games="groupedGames"
       :library-group="libraryGroup" :active-library-filter-count="activeLibraryFilterCount"
       :selected-game-id="selectedGameId" :is-mobile-device="isMobileDevice" :open-menu="openMenu"
-      :is-active="!activeGame" @open-file-picker="openFilePicker" @request-clear-library="requestClearLibrary"
-      @toggle-menu="toggleMenu" @clear-filters="clearLibraryFilters" @select-game="handleGameCardClick"
-      @open-game="openGame" @continue-game="openGame" @open-history="openSaveHistory"
+      :is-active="!activeGame" :saved-scroll-y="libraryScrollY" @open-file-picker="openFilePicker"
+      @request-clear-library="requestClearLibrary" @toggle-menu="toggleMenu" @clear-filters="clearLibraryFilters"
+      @select-game="handleGameCardClick" @open-game="openGame" @continue-game="openGame" @open-history="openSaveHistory"
       @delete-game="requestDeleteGame" />
 
     <Player v-else :active-game="activeGame" :frame-height="frameHeight" :has-core="hasCore" :is-playing="isPlaying"

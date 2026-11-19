@@ -1,5 +1,5 @@
 <script setup>
-import { nextTick, ref, watch } from "vue";
+import { nextTick, onMounted, ref } from "vue";
 import GameCard from "./GameCard.vue";
 
 const props = defineProps({
@@ -39,6 +39,10 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  savedScrollY: {
+    type: Number,
+    default: 0,
+  },
 });
 
 const search = defineModel("search", { type: String, default: "" });
@@ -59,33 +63,21 @@ const emit = defineEmits([
 ]);
 
 const libraryRef = ref(null);
-const scrollPosition = ref({ y: 0, container: 0 });
 
-function saveScrollPosition() {
-  scrollPosition.value = {
-    y: window.scrollY,
-    container: libraryRef.value ? libraryRef.value.scrollTop : 0,
-  };
+async function applySavedScroll() {
+  if (typeof window === "undefined" || props.savedScrollY <= 0) return;
+  await nextTick();
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  window.scrollTo({
+    top: props.savedScrollY,
+    left: 0,
+    behavior: "instant",
+  });
 }
 
-function restoreScrollPosition() {
-  const { y, container } = scrollPosition.value;
-  if (libraryRef.value) {
-    libraryRef.value.scrollTop = container;
-  }
-  window.scrollTo(0, y);
-}
-
-watch(
-  () => props.isActive,
-  (active, previous) => {
-    if (previous && !active) {
-      saveScrollPosition();
-    } else if (!previous && active) {
-      nextTick(() => restoreScrollPosition());
-    }
-  },
-);
+onMounted(() => {
+  void applySavedScroll();
+});
 </script>
 
 <template>

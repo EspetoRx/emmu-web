@@ -26,6 +26,8 @@ export function useEmulator({
   awaitingRomRecovery,
   openMenu,
   openFilePicker,
+  onBeforeOpenGame,
+  onAfterReturnToLibrary,
   onReturnToLibraryCleanup,
   onSetAppError,
   onClearAppError,
@@ -212,6 +214,7 @@ export function useEmulator({
     if (isRestoringSave.value) return;
     isRestoringSave.value = true;
     try {
+      onBeforeOpenGame?.();
       const savedGame = await saveGameProgress(
         game.id,
         {
@@ -224,7 +227,7 @@ export function useEmulator({
       game.stateSavedAt = savedGame.stateSavedAt;
       game.saveHistory = savedGame.saveHistory;
       historyGame.value = null;
-      await openGame(game);
+      await openGame(game, { skipScrollCapture: true });
     } catch (error) {
       console.error("Could not restore a saved game history entry:", error);
       onSetAppError?.(
@@ -463,8 +466,11 @@ export function useEmulator({
     }
   }
 
-  async function openGame(game) {
+  async function openGame(game, { skipScrollCapture = false } = {}) {
     console.log("[openGame] início:", game.name, game.format);
+    if (!skipScrollCapture && !activeGame.value) {
+      onBeforeOpenGame?.();
+    }
     if (game.romUnavailable) {
       awaitingRomRecovery.value = game;
       openFilePicker?.();
@@ -676,6 +682,7 @@ export function useEmulator({
     onClearPlayerError?.();
     openMenu.value = null;
     onReturnToLibraryCleanup?.();
+    await onAfterReturnToLibrary?.();
   }
 
   function dismissRecoveryPrompt() {

@@ -1,6 +1,6 @@
 class EmulationWorkerClient {
   constructor() {
-    this.worker = new Worker(new URL("./snes.worker.js", import.meta.url), {
+    this.worker = new Worker(new URL("./../workers/snes.worker.js", import.meta.url), {
       type: "module",
     });
     this.nextRequestId = 0;

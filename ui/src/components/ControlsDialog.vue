@@ -1,15 +1,40 @@
+<script setup>
+import { CONTROL_ACTIONS, formatControlKey } from "../composables/useControls.js";
+
+defineProps({
+  open: {
+    type: Boolean,
+    default: false,
+  },
+  draft: {
+    type: Object,
+    required: true,
+  },
+  waitingForControl: {
+    type: String,
+    default: null,
+  },
+  errorMessage: {
+    type: String,
+    default: "",
+  },
+  saveStatus: {
+    type: String,
+    default: "",
+  },
+});
+
+const emit = defineEmits([
+  "close",
+  "begin-capture",
+  "restore-defaults",
+  "save",
+]);
+</script>
+
 <template>
-  <div
-    v-if="visible"
-    class="modal-backdrop"
-    @click.self="emit('close')"
-  >
-    <section
-      class="controls-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="controls-title"
-    >
+  <div v-if="open" class="modal-backdrop" @click.self="emit('close')">
+    <section class="controls-dialog" role="dialog" aria-modal="true" aria-labelledby="controls-title">
       <div class="controls-dialog-heading">
         <div>
           <p class="eyebrow">SNES</p>
@@ -23,19 +48,15 @@
         Selecione um botão e pressione a tecla desejada. Escape cancela a captura.
       </p>
       <div class="control-bindings">
-        <div
-          v-for="action in CONTROL_ACTIONS"
-          :key="action.id"
-          class="control-binding"
-        >
+        <div v-for="action in CONTROL_ACTIONS" :key="action.id" class="control-binding">
           <span>{{ action.label }}</span>
-          <button
-            class="control-key-button"
-            :class="{ listening: waitingFor === action.id }"
-            :aria-pressed="waitingFor === action.id"
-            @click="emit('capture', action.id)"
-          >
-            {{ waitingFor === action.id ? "Pressione uma tecla…" : formatKey(bindings[action.id]) }}
+          <button class="control-key-button" :class="{ listening: waitingForControl === action.id }"
+            :aria-pressed="waitingForControl === action.id" @click="emit('begin-capture', action.id)">
+            {{
+              waitingForControl === action.id
+                ? "Pressione uma tecla…"
+                : formatControlKey(draft[action.id])
+            }}
           </button>
         </div>
       </div>
@@ -46,61 +67,15 @@
         {{ saveStatus }}
       </p>
       <div class="controls-dialog-actions">
-        <button class="secondary-button" @click="emit('defaults')">
+        <button class="secondary-button" @click="emit('restore-defaults')">
           Padrões
         </button>
         <span class="dialog-action-spacer"></span>
         <button class="secondary-button" @click="emit('close')">Cancelar</button>
-        <button
-          class="primary-button"
-          :disabled="Boolean(waitingFor)"
-          @click="emit('save', draftBindings)"
-        >
+        <button class="primary-button" :disabled="Boolean(waitingForControl)" @click="emit('save')">
           Salvar
         </button>
       </div>
     </section>
   </div>
 </template>
-
-<script setup>
-import { computed } from "vue";
-
-const props = defineProps(["visible", "bindings", "draftBindings", "waitingFor", "errorMessage", "saveStatus"]);
-const emit = defineEmits(["close", "capture", "defaults", "save"]);
-
-const CONTROL_ACTIONS = [
-  { id: "Up", label: "Cima" },
-  { id: "Down", label: "Baixo" },
-  { id: "Left", label: "Esquerda" },
-  { id: "Right", label: "Direita" },
-  { id: "A", label: "A" },
-  { id: "B", label: "B" },
-  { id: "X", label: "X" },
-  { id: "Y", label: "Y" },
-  { id: "L", label: "L" },
-  { id: "R", label: "R" },
-  { id: "Start", label: "Start" },
-  { id: "Select", label: "Select" },
-];
-
-const formatKey = (code) => {
-  const labels = {
-    ArrowUp: "↑",
-    ArrowDown: "↓",
-    ArrowLeft: "←",
-    ArrowRight: "→",
-    Enter: "Enter",
-    ShiftLeft: "Shift esquerdo",
-    ShiftRight: "Shift direito",
-    Space: "Espaço",
-    Backspace: "Backspace",
-    Delete: "Delete",
-  };
-  if (labels[code]) return labels[code];
-  if (code.startsWith("Key")) return code.slice(3);
-  if (code.startsWith("Digit")) return code.slice(5);
-  if (code.startsWith("Numpad")) return `Num ${code.slice(6)}`;
-  return code;
-};
-</script>

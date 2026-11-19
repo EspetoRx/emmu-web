@@ -1,4 +1,3 @@
-/** ui/src/composables/snes.js */
 class EmulationWorkerClient {
   constructor() {
     this.worker = new Worker(
@@ -18,9 +17,11 @@ class EmulationWorkerClient {
       else request.resolve(data.result);
     });
     this.worker.addEventListener("error", (event) => {
+      console.error("[snes.js] worker error event:", event);
       this.fail(new Error(event.message || "Falha no worker de emulação."));
     });
-    this.worker.addEventListener("messageerror", () => {
+    this.worker.addEventListener("messageerror", (event) => {
+      console.error("[snes.js] worker messageerror event:", event);
       this.fail(
         new Error("Não foi possível receber dados do worker de emulação."),
       );
@@ -90,13 +91,26 @@ class EmulationWorkerClient {
 
 export async function createEmulator(romBytes, format) {
   const system = format === "NES" ? "NES" : "SNES";
+  console.log("[snes.js] createEmulator:", {
+    format,
+    system,
+    byteLength: romBytes?.byteLength,
+    bufferByteLength: romBytes?.buffer?.byteLength,
+    byteOffset: romBytes?.byteOffset,
+  });
   const emulator = new EmulationWorkerClient();
   try {
     await emulator.request("initialize", { rom: romBytes, system }, [
       romBytes.buffer,
     ]);
+    console.log("[snes.js] createEmulator inicializado com sucesso:", { system });
     return emulator;
   } catch (error) {
+    console.error("[snes.js] createEmulator falhou:", {
+      system,
+      message: error instanceof Error ? error.message : String(error),
+      error,
+    });
     emulator.dispose();
     throw error;
   }

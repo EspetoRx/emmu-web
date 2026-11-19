@@ -1,5 +1,3 @@
-
-/* platforms/web/ui/src/workers/snes.worker.js */
 import initializeWasm, { SnesEmulator } from "./../wasm/emmu_snes.js";
 import initializeNesWasm, { NesEmulator } from "./../wasm/nes/emmu_nes.js";
 
@@ -17,12 +15,21 @@ self.addEventListener("message", async ({ data }) => {
       case "initialize": {
         const system = data.system;
         const rom = new Uint8Array(data.rom);
+        console.log("[snes.worker] initialize:", {
+          id,
+          system,
+          romLength: rom.length,
+        });
         if (system === "NES") {
           await initializeNesWasm();
           emulator = new NesEmulator(rom);
         } else if (system === "SNES") {
           await initializeWasm();
+          console.log(
+            "[snes.worker] Wasm SNES inicializado, instanciando SnesEmulator...",
+          );
           emulator = new SnesEmulator(rom);
+          console.log("[snes.worker] SnesEmulator instanciado com sucesso.");
         } else {
           throw new Error(`Sistema não suportado: ${system}`);
         }
@@ -34,6 +41,10 @@ self.addEventListener("message", async ({ data }) => {
         if (!romData || !gameSystem) {
           throw new Error("Nenhum jogo está carregado para reiniciar.");
         }
+        console.log("[snes.worker] restart:", {
+          gameSystem,
+          romLength: romData.length,
+        });
         const restartedEmulator =
           gameSystem === "NES"
             ? new NesEmulator(romData)
@@ -71,7 +82,6 @@ self.addEventListener("message", async ({ data }) => {
         }
         break;
       }
-
       case "saveState": {
         const state = emulator.saveState();
         result = state;
@@ -87,9 +97,13 @@ self.addEventListener("message", async ({ data }) => {
 
     self.postMessage({ id, result }, transfer);
   } catch (error) {
-    self.postMessage({
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[snes.worker] erro ao processar mensagem:", {
       id,
-      error: error instanceof Error ? error.message : String(error),
+      type,
+      message,
+      error,
     });
+    self.postMessage({ id, error: message });
   }
 });

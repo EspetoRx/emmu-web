@@ -1,5 +1,8 @@
 import { ref } from "vue";
-import { loadControlBindings, saveControlBindings } from "../stores/libraryStore.js";
+import {
+  loadControlBindings,
+  saveControlBindings,
+} from "../stores/libraryStore.js";
 
 export const CONTROL_ACTIONS = [
   { id: "Up", label: "Cima" },
@@ -31,6 +34,21 @@ export const DEFAULT_CONTROL_BINDINGS = {
   Select: "ShiftLeft",
 };
 
+export const DEFAULT_P2_CONTROL_BINDINGS = {
+  Up: "KeyI",
+  Down: "KeyK",
+  Left: "KeyJ",
+  Right: "KeyL",
+  A: "KeyM",
+  B: "KeyN",
+  X: "KeyO",
+  Y: "KeyU",
+  L: "KeyY",
+  R: "KeyP",
+  Start: "NumpadEnter",
+  Select: "ShiftRight",
+};
+
 export const RESERVED_CONTROL_CODES = new Set([
   "Escape",
   "Tab",
@@ -47,12 +65,14 @@ function errorText(error) {
 }
 
 export function formatControlKey(code) {
+  if (!code) return "Não definida";
   const labels = {
     ArrowUp: "↑",
     ArrowDown: "↓",
     ArrowLeft: "←",
     ArrowRight: "→",
     Enter: "Enter",
+    NumpadEnter: "Num Enter",
     ShiftLeft: "Shift esquerdo",
     ShiftRight: "Shift direito",
     Space: "Espaço",
@@ -66,16 +86,20 @@ export function formatControlKey(code) {
   return code;
 }
 
-export function validateControlBindings(bindings) {
+function validateSinglePlayerBindings(bindings, playerLabel) {
   const validated = {};
   const assignedCodes = new Set();
-  for (const { id } of CONTROL_ACTIONS) {
+  for (const { id, label } of CONTROL_ACTIONS) {
     const code = bindings?.[id];
     if (typeof code !== "string" || !code || RESERVED_CONTROL_CODES.has(code)) {
-      throw new Error(`A tecla configurada para ${id} é inválida.`);
+      throw new Error(
+        `A tecla configurada para ${label} (${playerLabel}) é inválida.`,
+      );
     }
     if (assignedCodes.has(code)) {
-      throw new Error(`A tecla ${formatControlKey(code)} está atribuída a mais de um botão.`);
+      throw new Error(
+        `A tecla ${formatControlKey(code)} está atribuída a mais de um botão no ${playerLabel}.`,
+      );
     }
     assignedCodes.add(code);
     validated[id] = code;
@@ -83,20 +107,71 @@ export function validateControlBindings(bindings) {
   return validated;
 }
 
+export function validateControlBindings(raw) {
+  const isLegacyMap =
+    raw &&
+    typeof raw === "object" &&
+    !raw.p1 &&
+    !raw.p2 &&
+    typeof raw.Up === "string";
+
+  const p1Raw = isLegacyMap ? raw : (raw?.p1 ?? DEFAULT_CONTROL_BINDINGS);
+  const p2Enabled = Boolean(raw?.p2Enabled);
+  const p2Raw = raw?.p2 ?? DEFAULT_P2_CONTROL_BINDINGS;
+
+  const p1 = validateSinglePlayerBindings(p1Raw, "Jogador 1");
+  const p2 = validateSinglePlayerBindings(p2Raw, "Jogador 2");
+
+  if (p2Enabled) {
+    const p1Codes = new Map(
+      CONTROL_ACTIONS.map(({ id, label }) => [p1[id], label]),
+    );
+    for (const { id, label } of CONTROL_ACTIONS) {
+      const code = p2[id];
+      if (p1Codes.has(code)) {
+        throw new Error(
+          `A tecla ${formatControlKey(code)} já está em uso no Jogador 1 (${p1Codes.get(code)}).`,
+        );
+      }
+      p2[id] = code;
+    }
+  }
+
+  return { p1, p2, p2Enabled };
+}
+
 export function useControls({ onError, onBeforeOpen } = {}) {
-  const controlBindings = ref({ ...DEFAULT_CONTROL_BINDINGS });
-  const controlDraft = ref({ ...DEFAULT_CONTROL_BINDINGS });
+  const controlBindings = ref({
+    p1: { ...DEFAULT_CONTROL_BINDINGS },
+    p2: { ...DEFAULT_P2_CONTROL_BINDINGS },
+    p2Enabled: false,
+  });
+  const controlDraft = ref({
+    p1: { ...DEFAULT_CONTROL_BINDINGS },
+    p2: { ...DEFAULT_P2_CONTROL_BINDINGS },
+    p2Enabled: false,
+  });
+  const activePlayer = ref(1);
   const waitingForControl = ref(null);
   const controlErrorMessage = ref("");
   const controlSaveStatus = ref("");
   const showControls = ref(false);
 
+  function cloneState(state) {
+    return {
+      p1: { ...state.p1 },
+      p2: { ...state.p2 },
+      p2Enabled: Boolean(state.p2Enabled),
+    };
+  }
+
   async function restoreControls() {
     try {
       const savedBindings = await loadControlBindings();
       if (savedBindings) {
-        controlBindings.value = validateControlBindings(savedBindings);
-        controlDraft.value = { ...controlBindings.value };
+        const validated = validateControlBindings(savedBindings);
+        controlBindings.value = cloneState(validated);
+        controlDraft.value = cloneState(validated);
       }
     } catch (error) {
       console.error("Could not restore the controller bindings:", error);
@@ -104,13 +179,37 @@ export function useControls({ onError, onBeforeOpen } = {}) {
     }
   }
 
-  function openControls() {
+  function openControls(player = 1, { enableP2 = false } = {}) {
     onBeforeOpen?.();
-    controlDraft.value = { ...controlBindings.value };
+    controlDraft.value = cloneState(controlBindings.value);
+    if (player === 2 && enableP2) {
+      controlDraft.value.p2Enabled = true;
+    }
+    activePlayer.value = player === 2 ? 2 : 1;
     waitingForControl.value = null;
     controlErrorMessage.value = "";
     controlSaveStatus.value = "";
     showControls.value = true;
+  }
+
+  function selectPlayerTab(player) {
+    if (player === 2 && !controlDraft.value.p2Enabled) {
+      controlDraft.value.p2Enabled = true;
+    }
+    activePlayer.value = player === 2 ? 2 : 1;
+    waitingForControl.value = null;
+    controlErrorMessage.value = "";
+  }
+
+  function setPlayerTwoEnabled(enabled) {
+    const nextEnabled = Boolean(enabled);
+    controlDraft.value.p2Enabled = nextEnabled;
+    if (!nextEnabled && activePlayer.value === 2) {
+      activePlayer.value = 1;
+    }
+    waitingForControl.value = null;
+    controlErrorMessage.value = "";
+    controlSaveStatus.value = "";
   }
 
   function closeControls() {
@@ -134,25 +233,47 @@ export function useControls({ onError, onBeforeOpen } = {}) {
       return;
     }
     if (!event.code || RESERVED_CONTROL_CODES.has(event.code)) {
-      controlErrorMessage.value = "Essa tecla é reservada pelo sistema. Escolha outra.";
+      controlErrorMessage.value =
+        "Essa tecla é reservada pelo sistema. Escolha outra.";
       return;
     }
 
-    const conflict = CONTROL_ACTIONS.find(
-      ({ id }) => id !== waitingForControl.value && controlDraft.value[id] === event.code,
+    const currentPlayerKey = activePlayer.value === 2 ? "p2" : "p1";
+    const currentMap = controlDraft.value[currentPlayerKey];
+
+    const samePlayerConflict = CONTROL_ACTIONS.find(
+      ({ id }) =>
+        id !== waitingForControl.value && currentMap[id] === event.code,
     );
-    if (conflict) {
-      controlErrorMessage.value = `${formatControlKey(event.code)} já está atribuída a ${conflict.label}.`;
+    if (samePlayerConflict) {
+      controlErrorMessage.value = `${formatControlKey(event.code)} já está atribuída a ${samePlayerConflict.label} no Jogador ${activePlayer.value}.`;
       return;
     }
 
-    controlDraft.value[waitingForControl.value] = event.code;
+    if (controlDraft.value.p2Enabled) {
+      const otherPlayerKey = activePlayer.value === 2 ? "p1" : "p2";
+      const otherPlayerNumber = activePlayer.value === 2 ? 1 : 2;
+      const otherMap = controlDraft.value[otherPlayerKey];
+      const crossPlayerConflict = CONTROL_ACTIONS.find(
+        ({ id }) => otherMap[id] === event.code,
+      );
+      if (crossPlayerConflict) {
+        controlErrorMessage.value = `${formatControlKey(event.code)} já está em uso no Jogador ${otherPlayerNumber} (${crossPlayerConflict.label}).`;
+        return;
+      }
+    }
+
+    currentMap[waitingForControl.value] = event.code;
     waitingForControl.value = null;
     controlErrorMessage.value = "";
   }
 
   function restoreDefaultControls() {
-    controlDraft.value = { ...DEFAULT_CONTROL_BINDINGS };
+    if (activePlayer.value === 2) {
+      controlDraft.value.p2 = { ...DEFAULT_P2_CONTROL_BINDINGS };
+    } else {
+      controlDraft.value.p1 = { ...DEFAULT_CONTROL_BINDINGS };
+    }
     waitingForControl.value = null;
     controlErrorMessage.value = "";
     controlSaveStatus.value = "";
@@ -160,13 +281,15 @@ export function useControls({ onError, onBeforeOpen } = {}) {
 
   async function saveControls() {
     if (waitingForControl.value) {
-      controlErrorMessage.value = "Finalize a captura da tecla antes de salvar.";
+      controlErrorMessage.value =
+        "Finalize a captura da tecla antes de salvar.";
       return;
     }
     try {
-      const bindings = validateControlBindings(controlDraft.value);
-      await saveControlBindings(bindings);
-      controlBindings.value = bindings;
+      const validated = validateControlBindings(controlDraft.value);
+      await saveControlBindings(validated);
+      controlBindings.value = cloneState(validated);
+      controlDraft.value = cloneState(validated);
       controlSaveStatus.value = "Controles salvos.";
       controlErrorMessage.value = "";
     } catch (error) {
@@ -176,18 +299,48 @@ export function useControls({ onError, onBeforeOpen } = {}) {
   }
 
   function findActionByCode(code) {
-    return CONTROL_ACTIONS.find(({ id }) => controlBindings.value[id] === code)?.id;
+    console.log("[findActionByCode]", {
+      code,
+      p2Enabled: controlBindings.value.p2Enabled,
+      p1Match:
+        CONTROL_ACTIONS.find(({ id }) => controlBindings.value.p1[id] === code)
+          ?.id ?? null,
+      p2Match:
+        CONTROL_ACTIONS.find(({ id }) => controlBindings.value.p2[id] === code)
+          ?.id ?? null,
+      p2Map: controlBindings.value.p2,
+    });
+    const p1Action = CONTROL_ACTIONS.find(
+      ({ id }) => controlBindings.value.p1[id] === code,
+    );
+    if (p1Action) {
+      return { button: p1Action.id, player: 1 };
+    }
+    if (controlBindings.value.p2Enabled) {
+      const p2Action = CONTROL_ACTIONS.find(
+        ({ id }) => controlBindings.value.p2[id] === code,
+      );
+      if (p2Action) {
+        const res = { button: p2Action.id, player: 2 };
+        console.log("[findActionByCode] returning P2:", res);
+        return res;
+      }
+    }
+    return null;
   }
 
   return {
     controlBindings,
     controlDraft,
+    activePlayer,
     waitingForControl,
     controlErrorMessage,
     controlSaveStatus,
     showControls,
     restoreControls,
     openControls,
+    selectPlayerTab,
+    setPlayerTwoEnabled,
     closeControls,
     beginControlCapture,
     captureControlKey,

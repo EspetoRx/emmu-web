@@ -342,13 +342,25 @@ export function useEmulator({
       });
   }
 
-  function setButton(button, pressed, event) {
-    event?.preventDefault();
+  function setButton(button, pressed, player = 1, event = null) {
+    console.log("[useEmulator setButton] args:", {
+      button,
+      pressed,
+      player,
+      event,
+    });
+    event?.preventDefault?.();
     if (!snesCore) return;
     const core = snesCore;
-    if (pressed) pressedButtons.add(button);
-    else pressedButtons.delete(button);
-    void core.setButton(button, pressed).catch((error) => {
+    const slot = player === 2 ? 2 : 1;
+    const key = `${slot}:${button}`;
+    if (pressed) pressedButtons.add(key);
+    else pressedButtons.delete(key);
+    const call =
+      typeof core.setButton === "function"
+        ? core.setButton(button, pressed, slot)
+        : core.setButton(button, pressed);
+    void Promise.resolve(call).catch((error) => {
       console.error("Could not update the game controller:", error);
       onSetPlayerError?.(
         `Não foi possível atualizar o controle: ${errorText(error)}`,
@@ -357,9 +369,11 @@ export function useEmulator({
   }
 
   function releaseAllButtons() {
-    for (const button of pressedButtons) {
-      setButton(button, false);
+    for (const key of pressedButtons) {
+      const [slotStr, button] = key.split(":");
+      setButton(button, false, Number(slotStr) || 1, null);
     }
+    pressedButtons.clear();
   }
 
   function clearPressedButtonsOnly() {

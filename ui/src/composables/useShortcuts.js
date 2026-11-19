@@ -19,28 +19,30 @@ export function useShortcuts({
 
   function handlePlayerKeydown(event) {
     if (
-      event.target instanceof HTMLElement &&
-      event.target.closest("button, input, select, textarea, [contenteditable='true']")
+      event?.target instanceof HTMLElement &&
+      event.target.closest(
+        "button, input, select, textarea, [contenteditable='true']",
+      )
     ) {
       return;
     }
-    const button = findActionByCode?.(event.code);
-    if (!button || !activeGame.value) return;
-    event.preventDefault();
-    if (!event.repeat) setButton?.(button, true);
+    const match = findActionByCode?.(event?.code);
+    if (!match || !activeGame?.value) return;
+    event?.preventDefault?.();
+    if (!event?.repeat) setButton?.(match.button, true, match.player);
   }
 
   function handlePlayerKeyup(event) {
-    const button = findActionByCode?.(event.code);
-    if (button) setButton?.(button, false);
+    const match = findActionByCode?.(event?.code);
+    if (match) setButton?.(match.button, false, match.player);
   }
 
   function handleGlobalKeydown(event) {
-    if (showControls.value) {
-      if (waitingForControl.value) {
+    if (showControls?.value) {
+      if (waitingForControl?.value) {
         captureControlKey?.(event);
-      } else if (event.code === "Escape") {
-        event.preventDefault();
+      } else if (event?.code === "Escape") {
+        event?.preventDefault?.();
         closeControls?.();
       }
       return;
@@ -48,16 +50,18 @@ export function useShortcuts({
 
     handlePlayerKeydown(event);
 
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
-      event.preventDefault();
+    const key = typeof event?.key === "string" ? event.key : "";
+
+    if ((event?.metaKey || event?.ctrlKey) && key.toLowerCase() === "o") {
+      event?.preventDefault?.();
       openFilePicker?.();
-    } else if ((event.metaKey || event.ctrlKey) && event.key === "1") {
-      event.preventDefault();
+    } else if ((event?.metaKey || event?.ctrlKey) && key === "1") {
+      event?.preventDefault?.();
       void returnToLibrary?.();
-    } else if (event.metaKey && (event.key === "T" || event.key === "t")) {
-      event.preventDefault();
+    } else if (event?.metaKey && (key === "T" || key === "t")) {
+      event?.preventDefault?.();
       void generateThumbnails?.();
-    } else if (event.key === "Escape") {
+    } else if (key === "Escape") {
       onClosePopovers?.();
     }
   }
@@ -70,7 +74,7 @@ export function useShortcuts({
       nativeEventUnsubscribers = await Promise.all([
         listen("open-rom-request", () => openFilePicker?.()),
         listen("return-to-library", () => void returnToLibrary?.()),
-        listen("configure-controls", () => openControls?.()),
+        listen("configure-controls", () => openControls?.(1)),
         listen("show-help", () => onShowHelp?.()),
       ]);
     } catch (error) {

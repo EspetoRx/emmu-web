@@ -1,9 +1,12 @@
 /** ui/src/composables/snes.js */
 class EmulationWorkerClient {
   constructor() {
-    this.worker = new Worker(new URL("./../workers/snes.worker.js", import.meta.url), {
-      type: "module",
-    });
+    this.worker = new Worker(
+      new URL("./../workers/snes.worker.js", import.meta.url),
+      {
+        type: "module",
+      },
+    );
     this.nextRequestId = 0;
     this.pendingRequests = new Map();
     this.disposed = false;
@@ -18,7 +21,9 @@ class EmulationWorkerClient {
       this.fail(new Error(event.message || "Falha no worker de emulação."));
     });
     this.worker.addEventListener("messageerror", () => {
-      this.fail(new Error("Não foi possível receber dados do worker de emulação."));
+      this.fail(
+        new Error("Não foi possível receber dados do worker de emulação."),
+      );
     });
   }
 
@@ -61,8 +66,10 @@ class EmulationWorkerClient {
     return this.request("restart");
   }
 
-  setButton(button, pressed) {
-    return this.request("setButton", { button, pressed });
+  setButton(button, pressed, player = 1) {
+    const slot = player === 2 ? 2 : 1;
+    console.log("[snes.js] setButton:", { button, pressed, player, slot });
+    return this.request("setButton", { button, pressed, player: slot });
   }
 
   saveState() {
@@ -85,7 +92,9 @@ export async function createEmulator(romBytes, format) {
   const system = format === "NES" ? "NES" : "SNES";
   const emulator = new EmulationWorkerClient();
   try {
-    await emulator.request("initialize", { rom: romBytes, system }, [romBytes.buffer]);
+    await emulator.request("initialize", { rom: romBytes, system }, [
+      romBytes.buffer,
+    ]);
     return emulator;
   } catch (error) {
     emulator.dispose();

@@ -12,7 +12,7 @@ self.addEventListener("message", async ({ data }) => {
     let transfer = [];
 
     switch (type) {
-      case "initialize":
+      case "initialize": {
         const system = data.system;
         const rom = new Uint8Array(data.rom);
         if (system === "NES") {
@@ -27,7 +27,8 @@ self.addEventListener("message", async ({ data }) => {
         romData = rom;
         gameSystem = system;
         break;
-      case "restart":
+      }
+      case "restart": {
         if (!romData || !gameSystem) {
           throw new Error("Nenhum jogo está carregado para reiniciar.");
         }
@@ -38,6 +39,7 @@ self.addEventListener("message", async ({ data }) => {
         emulator.free();
         emulator = restartedEmulator;
         break;
+      }
       case "runFrame": {
         const startTime = performance.now();
         const frame = emulator.runFrame(data.renderGraphics);
@@ -52,9 +54,22 @@ self.addEventListener("message", async ({ data }) => {
         transfer = [frame.buffer, audioSamples.buffer];
         break;
       }
-      case "setButton":
-        emulator.setButton(data.button, data.pressed);
+      case "setButton": {
+        const player = data.player === 2 ? 2 : 1;
+        console.log("[worker] setButton:", {
+          button: data.button,
+          pressed: data.pressed,
+          player,
+          hasSetButtonForPlayer: typeof emulator?.setButtonForPlayer,
+        });
+        if (typeof emulator.setButtonForPlayer === "function") {
+          emulator.setButtonForPlayer(data.button, data.pressed, player);
+        } else {
+          emulator.setButton(data.button, data.pressed);
+        }
         break;
+      }
+
       case "saveState": {
         const state = emulator.saveState();
         result = state;

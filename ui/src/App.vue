@@ -52,13 +52,17 @@ function openFilePicker() {
 }
 
 const {
+  controlBindings,
   controlDraft,
+  activePlayer,
   waitingForControl,
   controlErrorMessage,
   controlSaveStatus,
   showControls,
   restoreControls,
   openControls,
+  selectPlayerTab,
+  setPlayerTwoEnabled,
   closeControls,
   beginControlCapture,
   captureControlKey,
@@ -297,7 +301,7 @@ onBeforeUnmount(() => {
     <AppHeader :is-native-desktop="isNativeDesktop" :is-mobile-device="isMobileDevice" :page-title="pageTitle"
       :open-menu="openMenu" :has-active-game="Boolean(activeGame)" :games-count="games.length" @toggle-menu="toggleMenu"
       @close-menu="openMenu = null" @open-file-picker="openFilePicker" @return-to-library="returnToLibrary"
-      @request-clear-library="requestClearLibrary" @open-controls="openControls" />
+      @request-clear-library="requestClearLibrary" @open-controls="openControls(1)" />
 
     <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig"
       aria-label="Abrir arquivos de jogos" tabindex="-1" @change="addRom" />
@@ -313,16 +317,18 @@ onBeforeUnmount(() => {
 
     <Player v-else :active-game="activeGame" :frame-height="frameHeight" :has-core="hasCore" :is-playing="isPlaying"
       :is-saving-state="isSavingState" :is-restarting="isRestarting" :is-mobile-device="isMobileDevice"
-      :audio-volume="audioVolume" :show-audio-controls="showAudioControls" @return-to-library="returnToLibrary"
-      @restart="restartGame" @open-controls="openControls"
+      :audio-volume="audioVolume" :show-audio-controls="showAudioControls" :p2-enabled="controlBindings.p2Enabled"
+      @return-to-library="returnToLibrary" @restart="restartGame" @open-p1-controls="openControls(1)"
+      @open-p2-controls="openControls(2, { enableP2: true })"
       @toggle-audio-controls="showAudioControls = !showAudioControls" @set-audio-volume="setAudioVolume"
       @save-state="saveGameState" @set-button="setButton" @register-stage="gameStageRef = $event"
       @register-canvas="setCanvasElement" />
 
     <HelpDialog :open="showHelp" :is-mobile-device="isMobileDevice" @close="showHelp = false" />
 
-    <ControlsDialog :open="showControls" :draft="controlDraft" :waiting-for-control="waitingForControl"
-      :error-message="controlErrorMessage" :save-status="controlSaveStatus" @close="closeControls"
+    <ControlsDialog :open="showControls" :draft="controlDraft" :active-player="activePlayer"
+      :waiting-for-control="waitingForControl" :error-message="controlErrorMessage" :save-status="controlSaveStatus"
+      @close="closeControls" @select-player="selectPlayerTab" @set-p2-enabled="setPlayerTwoEnabled"
       @begin-capture="beginControlCapture" @restore-defaults="restoreDefaultControls" @save="saveControls" />
 
     <SaveHistoryDialog :game="historyGame" :is-restoring="isRestoringSave" @close="historyGame = null"

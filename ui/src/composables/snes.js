@@ -1,3 +1,4 @@
+/** ui/src/composables/snes.js */
 class EmulationWorkerClient {
   constructor() {
     this.worker = new Worker(new URL("./../workers/snes.worker.js", import.meta.url), {

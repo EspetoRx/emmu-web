@@ -31,6 +31,8 @@ export function useEmulator({
   onAudioHideControls,
 }) {
   const canvasRef = ref(null);
+  let snesCore = null;
+  const hasCore = ref(false);
   const stateSaveStatus = ref("");
   const isPlaying = ref(false);
   const isSavingState = ref(false);
@@ -40,7 +42,6 @@ export function useEmulator({
   const isRestoringSave = ref(false);
   const resumedFromSave = ref(false);
 
-  let snesCore = null;
   let emulationTimerId = 0;
   let nextEmulationFrameAt = 0;
   let lastCheckpointAt = 0;
@@ -56,7 +57,10 @@ export function useEmulator({
   let frameImageData = null;
   const pressedButtons = new Set();
 
-  const hasCore = computed(() => Boolean(snesCore));
+  function setCore(core) {
+    snesCore = core;
+    hasCore.value = Boolean(core);
+  }
   const frameHeight = computed(() =>
     activeGame.value?.format === "NES" ? NES_FRAME_HEIGHT : SNES_FRAME_HEIGHT,
   );
@@ -90,7 +94,9 @@ export function useEmulator({
   function capturePreview() {
     const canvas = canvasRef.value;
     if (!canvas) {
-      return Promise.reject(new Error("A tela do jogo não está disponível para captura."));
+      return Promise.reject(
+        new Error("A tela do jogo não está disponível para captura."),
+      );
     }
     return new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
@@ -102,7 +108,9 @@ export function useEmulator({
 
   function handleCheckpointError(error) {
     console.error("Could not save the game checkpoint:", error);
-    onSetPlayerError?.(`Não foi possível salvar o progresso: ${errorText(error)}`);
+    onSetPlayerError?.(
+      `Não foi possível salvar o progresso: ${errorText(error)}`,
+    );
   }
 
   async function saveCurrentProgress({ recordHistory = false } = {}) {
@@ -119,7 +127,9 @@ export function useEmulator({
 
     const gameId = game.id;
     const progressPromise = (async () => {
-      const state = new Blob([await core.saveState()], { type: "application/octet-stream" });
+      const state = new Blob([await core.saveState()], {
+        type: "application/octet-stream",
+      });
       let preview = game.preview ?? null;
       let refreshedPreview = null;
       if (canvasRef.value) {
@@ -127,13 +137,18 @@ export function useEmulator({
           refreshedPreview = await capturePreview();
           preview = refreshedPreview;
         } catch (error) {
-          console.warn("Could not refresh the game preview while saving progress:", error);
+          console.warn(
+            "Could not refresh the game preview while saving progress:",
+            error,
+          );
         }
       }
       const stateSavedAt = Date.now();
       const progress = { state, stateSavedAt };
       if (preview) progress.preview = preview;
-      const savedGame = await saveGameProgress(gameId, progress, { recordHistory });
+      const savedGame = await saveGameProgress(gameId, progress, {
+        recordHistory,
+      });
 
       if (refreshedPreview) {
         if (game.previewUrl) URL.revokeObjectURL(game.previewUrl);
@@ -200,22 +215,32 @@ export function useEmulator({
       await openGame(game);
     } catch (error) {
       console.error("Could not restore a saved game history entry:", error);
-      onSetAppError?.(`Não foi possível restaurar esse save: ${errorText(error)}`);
+      onSetAppError?.(
+        `Não foi possível restaurar esse save: ${errorText(error)}`,
+      );
       historyGame.value = null;
     } finally {
       isRestoringSave.value = false;
     }
   }
 
-  function scheduleEmulationFrame(generation, targetTime = performance.now() + FRAME_INTERVAL) {
+  function scheduleEmulationFrame(
+    generation,
+    targetTime = performance.now() + FRAME_INTERVAL,
+  ) {
     nextEmulationFrameAt = targetTime;
     const delay = Math.max(0, targetTime - performance.now());
-    emulationTimerId = window.setTimeout(() => emulationTick(generation), delay);
+    emulationTimerId = window.setTimeout(
+      () => emulationTick(generation),
+      delay,
+    );
   }
 
   function shouldRenderFrame() {
     emulatedFrameNumber += 1;
-    return renderEveryFrames === 1 || emulatedFrameNumber % renderEveryFrames === 0;
+    return (
+      renderEveryFrames === 1 || emulatedFrameNumber % renderEveryFrames === 0
+    );
   }
 
   function updateFramePacing(rendered, processingTimeMs, elapsedFrameMs) {
@@ -240,13 +265,21 @@ export function useEmulator({
       4,
       Math.max(
         2,
-        Math.ceil((renderedFrameTime - estimatedSkipTime) / (frameBudget - estimatedSkipTime)),
+        Math.ceil(
+          (renderedFrameTime - estimatedSkipTime) /
+            (frameBudget - estimatedSkipTime),
+        ),
       ),
     );
   }
 
   function emulationTick(generation) {
-    if (generation !== emulationGeneration || !snesCore || !activeGame.value) return;
+    if (
+      generation !== emulationGeneration ||
+      !snesCore ||
+      !activeGame.value
+    )
+      return;
 
     const core = snesCore;
     const renderGraphics = shouldRenderFrame();
@@ -254,7 +287,12 @@ export function useEmulator({
     void core
       .runFrame(renderGraphics)
       .then((frame) => {
-        if (generation !== emulationGeneration || core !== snesCore || !activeGame.value) return;
+        if (
+          generation !== emulationGeneration ||
+          core !== snesCore ||
+          !activeGame.value
+        )
+          return;
         if (frame.frame.length) drawFrame(frame.frame);
         try {
           onAudioQueueFrame?.(frame);
@@ -272,7 +310,8 @@ export function useEmulator({
         }
       })
       .catch((error) => {
-        if (generation !== emulationGeneration || core !== snesCore) return;
+        if (generation !== emulationGeneration || core !== snesCore)
+          return;
         console.error("Game emulation stopped:", error);
         onSetPlayerError?.(`A emulação foi interrompida: ${errorText(error)}`);
         stopEmulationLoop();
@@ -281,8 +320,15 @@ export function useEmulator({
         isPlaying.value = false;
       })
       .finally(() => {
-        if (generation === emulationGeneration && core === snesCore && activeGame.value) {
-          scheduleEmulationFrame(generation, nextEmulationFrameAt + FRAME_INTERVAL);
+        if (
+          generation === emulationGeneration &&
+          core === snesCore &&
+          activeGame.value
+        ) {
+          scheduleEmulationFrame(
+            generation,
+            nextEmulationFrameAt + FRAME_INTERVAL,
+          );
         }
       });
   }
@@ -295,7 +341,9 @@ export function useEmulator({
     else pressedButtons.delete(button);
     void core.setButton(button, pressed).catch((error) => {
       console.error("Could not update the game controller:", error);
-      onSetPlayerError?.(`Não foi possível atualizar o controle: ${errorText(error)}`);
+      onSetPlayerError?.(
+        `Não foi possível atualizar o controle: ${errorText(error)}`,
+      );
     });
   }
 
@@ -384,13 +432,16 @@ export function useEmulator({
       }
       console.error("Could not restart the game:", error);
       stateSaveStatus.value = "";
-      onSetPlayerError?.(`Não foi possível reiniciar o jogo: ${errorText(error)}`);
+      onSetPlayerError?.(
+        `Não foi possível reiniciar o jogo: ${errorText(error)}`,
+      );
     } finally {
       if (requestGeneration === restartGeneration) isRestarting.value = false;
     }
   }
 
   async function openGame(game) {
+    console.log("[openGame] início:", game.name, game.format);
     if (game.romUnavailable) {
       awaitingRomRecovery.value = game;
       openFilePicker?.();
@@ -405,10 +456,14 @@ export function useEmulator({
 
     let audioReady = Promise.resolve();
     try {
-      audioReady = (onAudioInitialize?.() ?? Promise.resolve()).catch((error) => {
-        onAudioReportError?.(error);
-      });
+      audioReady = (onAudioInitialize?.() ?? Promise.resolve()).catch(
+        (error) => {
+          console.error("[openGame] erro no audioReady:", error);
+          onAudioReportError?.(error);
+        },
+      );
     } catch (error) {
+      console.error("[openGame] erro ao iniciar áudio:", error);
       onAudioReportError?.(error);
     }
 
@@ -426,7 +481,7 @@ export function useEmulator({
     }
     if (loadGeneration !== gameLoadGeneration) return;
     onAudioStopPlayback?.();
-    snesCore = null;
+    setCore(null);
     isPlaying.value = false;
     activeGame.value = game;
     selectedGameId.value = game.id;
@@ -439,44 +494,84 @@ export function useEmulator({
     let core = null;
     try {
       await nextTick();
+      console.log(
+        "[openGame] nextTick concluído, canvas:",
+        Boolean(canvasRef.value),
+      );
       const romBytes = new Uint8Array(await game.rom.arrayBuffer());
       if (game.rom instanceof File) {
-        const durableRom = new Blob([romBytes], { type: "application/octet-stream" });
-        await saveLibraryGame({ ...game, rom: durableRom, romUnavailable: false });
+        const durableRom = new Blob([romBytes], {
+          type: "application/octet-stream",
+        });
+        await saveLibraryGame({
+          ...game,
+          rom: durableRom,
+          romUnavailable: false,
+        });
         Object.assign(game, { rom: durableRom, romUnavailable: false });
       }
+      console.log("[openGame] criando emulador...");
       core = await createEmulator(romBytes, game.format);
+      console.log("[openGame] emulador criado, aguardando áudio...");
       await audioReady;
-      if (loadGeneration !== gameLoadGeneration || activeGame.value?.id !== game.id) {
+      console.log("[openGame] áudio pronto");
+      if (
+        loadGeneration !== gameLoadGeneration ||
+        activeGame.value?.id !== game.id
+      ) {
         core.dispose();
         return;
       }
       if (game.state) {
         try {
+          console.log("[openGame] carregando estado salvo...");
           await core.loadState(new Uint8Array(await game.state.arrayBuffer()));
+          console.log("[openGame] estado carregado");
         } catch (error) {
-          if (loadGeneration !== gameLoadGeneration || activeGame.value?.id !== game.id) {
+          if (
+            loadGeneration !== gameLoadGeneration ||
+            activeGame.value?.id !== game.id
+          ) {
             core.dispose();
             return;
           }
-          snesCore = core;
+          setCore(core);
           onSetPlayerError?.("Não foi possível carregar o estado salvo.");
           recoveryPrompt.value = { gameId: game.id, reason: errorText(error) };
           return;
         }
       }
-      if (loadGeneration !== gameLoadGeneration || activeGame.value?.id !== game.id) {
+      if (
+        loadGeneration !== gameLoadGeneration ||
+        activeGame.value?.id !== game.id
+      ) {
         core.dispose();
         return;
       }
 
-      snesCore = core;
+      setCore(core);
       resumedFromSave.value = Boolean(game.state);
+      console.log("[openGame] rodando primeiro frame...");
       const firstFrame = await core.runFrame();
+      console.log(
+        "[openGame] primeiro frame recebido:",
+        firstFrame?.frame?.length,
+      );
       if (loadGeneration !== gameLoadGeneration || snesCore !== core) {
+        console.warn("[openGame] abortado após runFrame:", {
+          loadGeneration,
+          gameLoadGeneration,
+          sameCore: snesCore === core,
+        });
         if (snesCore !== core) core.dispose();
         return;
       }
+      console.log("[openGame] após guardas:", {
+        loadGeneration,
+        gameLoadGeneration,
+        hasCoreAfter: Boolean(snesCore),
+        sameCore: snesCore === core,
+      });
       drawFrame(firstFrame.frame);
       try {
         onAudioQueueFrame?.(firstFrame);
@@ -484,6 +579,12 @@ export function useEmulator({
         onAudioReportError?.(error);
       }
       isPlaying.value = true;
+      console.log(
+        "[openGame] emulação ativa! hasCore:",
+        hasCore.value,
+        "isPlaying:",
+        isPlaying.value,
+      );
       lastCheckpointAt = performance.now();
       renderedFrameTime = 0;
       skippedFrameTime = 0;
@@ -492,22 +593,30 @@ export function useEmulator({
       void saveCurrentProgress().catch(handleCheckpointError);
       scheduleEmulationFrame(emulationGeneration);
     } catch (error) {
+      console.error("[openGame] falhou no catch:", error);
       if (loadGeneration !== gameLoadGeneration) {
         if (core && snesCore !== core) core.dispose();
         return;
       }
       core?.dispose();
-      if (snesCore === core) snesCore = null;
+      if (snesCore === core) setCore(null);
       isPlaying.value = false;
       console.error("Could not start the game:", error);
       activeGame.value = null;
       if (error?.name === "NotFoundError") {
-        const unavailableGame = { ...game, rom: new Blob(), romUnavailable: true };
+        const unavailableGame = {
+          ...game,
+          rom: new Blob(),
+          romUnavailable: true,
+        };
         Object.assign(game, unavailableGame);
         try {
           await saveLibraryGame(unavailableGame);
         } catch (persistError) {
-          console.error("Could not mark the unavailable ROM in the library:", persistError);
+          console.error(
+            "Could not mark the unavailable ROM in the library:",
+            persistError,
+          );
         }
         onSetAppError?.(
           `A ROM "${game.fileName}" não está mais acessível. Reimporte o arquivo para continuar.`,
@@ -536,7 +645,7 @@ export function useEmulator({
     if (returnGeneration !== gameLoadGeneration) return;
     core?.dispose();
     onAudioStopPlayback?.();
-    snesCore = null;
+    setCore(null);
     isPlaying.value = false;
     activeGame.value = null;
     resumedFromSave.value = false;
@@ -553,7 +662,7 @@ export function useEmulator({
     stopEmulationLoop();
     clearPressedButtonsOnly();
     snesCore?.dispose();
-    snesCore = null;
+    setCore(null);
     onAudioStopPlayback?.();
     isPlaying.value = false;
     activeGame.value = null;

@@ -208,6 +208,14 @@ async function openGameWithLoading(game, options) {
   const request = ++gameLoadRequest;
   loadingGameName.value = game.name;
   isGameLoading.value = true;
+
+  // Garante que o modal seja pintado antes de qualquer trabalho síncrono de
+  // inicialização do core (principalmente no GBA, cujo bridge é grande).
+  await nextTick();
+  await new Promise((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(resolve)),
+  );
+
   try {
     await openGame(game, options);
   } finally {

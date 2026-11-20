@@ -53,14 +53,11 @@ class MesenTauriClient {
       return Promise.resolve();
     }
     const slot = player === 2 ? 2 : 1;
-    console.log("[MesenTauriClient] setButton:", { button, pressed, player, slot });
     return tauriInvoke("mesen_set_button", {
       button,
       pressed: Boolean(pressed),
       player: slot,
-    }).catch((err) => {
-      console.error("[MesenTauriClient] setButton error:", err);
-    });
+    }).catch(() => {});
   }
 
   async saveState() {
@@ -75,16 +72,12 @@ class MesenTauriClient {
 
   setVolume(volume) {
     const percent = Math.round(Math.min(1, Math.max(0, volume)) * 100);
-    return tauriInvoke("mesen_set_volume", { volume: percent }).catch((err) => {
-      console.error("[MesenTauriClient] setVolume error:", err);
-    });
+    return tauriInvoke("mesen_set_volume", { volume: percent }).catch(() => {});
   }
 
   setP2Enabled(enabled) {
     return tauriInvoke("mesen_set_p2_enabled", { enabled: Boolean(enabled) }).catch(
-      (err) => {
-        console.error("[MesenTauriClient] setP2Enabled error:", err);
-      },
+      () => {},
     );
   }
 
@@ -114,11 +107,9 @@ class EmulationWorkerClient {
       else request.resolve(data.result);
     });
     this.worker.addEventListener("error", (event) => {
-      console.error("[snes.js] worker error event:", event);
       this.fail(new Error(event.message || "Falha no worker de emulação."));
     });
     this.worker.addEventListener("messageerror", (event) => {
-      console.error("[snes.js] worker messageerror event:", event);
       this.fail(
         new Error("Não foi possível receber dados do worker de emulação."),
       );
@@ -166,7 +157,6 @@ class EmulationWorkerClient {
 
   setButton(button, pressed, player = 1) {
     const slot = player === 2 ? 2 : 1;
-    console.log("[snes.js] setButton:", { button, pressed, player, slot });
     return this.request("setButton", { button, pressed, player: slot });
   }
 
@@ -188,13 +178,6 @@ class EmulationWorkerClient {
 
 export async function createEmulator(romBytes, format) {
   const system = format === "NES" ? "NES" : "SNES";
-  console.log("[snes.js] createEmulator:", {
-    format,
-    system,
-    byteLength: romBytes?.byteLength,
-    bufferByteLength: romBytes?.buffer?.byteLength,
-    byteOffset: romBytes?.byteOffset,
-  });
 
   if (isTauriDesktop()) {
     // No desktop, NES e SNES rodam no Mesen (com SDL para áudio e save
@@ -212,14 +195,8 @@ export async function createEmulator(romBytes, format) {
     await emulator.request("initialize", { rom: romBytes, system }, [
       romBytes.buffer,
     ]);
-    console.log("[snes.js] createEmulator inicializado com sucesso:", { system });
     return emulator;
   } catch (error) {
-    console.error("[snes.js] createEmulator falhou:", {
-      system,
-      message: error instanceof Error ? error.message : String(error),
-      error,
-    });
     emulator.dispose();
     throw error;
   }

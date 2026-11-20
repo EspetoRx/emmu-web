@@ -78,9 +78,7 @@ async function toggleFullscreen() {
       return;
     }
     await stage.requestFullscreen();
-  } catch (error) {
-    console.error("Could not toggle fullscreen:", error);
-  }
+  } catch {}
 }
 
 onMounted(() => {

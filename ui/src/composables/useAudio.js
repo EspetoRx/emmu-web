@@ -25,7 +25,6 @@ export function useAudio({ onAudioError, onClearAudioError } = {}) {
   const scheduledAudioSources = new Set();
 
   function reportAudioError(error) {
-    console.error("Could not start game audio:", error);
     const message = `Áudio indisponível: ${errorText(error)}`;
     audioErrorMessage.value = message;
     onAudioError?.(message);
@@ -84,10 +83,9 @@ export function useAudio({ onAudioError, onClearAudioError } = {}) {
               reportAudioError(new Error("O processador de áudio foi interrompido."));
             });
           }
-        } catch (error) {
+        } catch {
           audioWorkletUnavailable = true;
           audioWorkletReady = null;
-          console.error("Could not initialize AudioWorklet; using Web Audio fallback:", error);
         }
       }
     })();

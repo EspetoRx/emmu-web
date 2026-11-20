@@ -178,9 +178,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       ) {
         libraryGroup.value = saved.group;
       }
-    } catch (error) {
-      console.error("Could not load saved library filters:", error);
-    }
+    } catch {}
   }
 
   function saveLibraryFilters() {
@@ -194,9 +192,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
           group: libraryGroup.value,
         }),
       );
-    } catch (error) {
-      console.error("Could not save library filters:", error);
-    }
+    } catch {}
   }
 
   watch(
@@ -222,7 +218,6 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
         previewUrl: game.preview ? URL.createObjectURL(game.preview) : null,
       }));
     } catch (error) {
-      console.error("Could not restore the game library:", error);
       onError?.(`Não foi possível carregar a biblioteca: ${errorText(error)}`);
     }
   }
@@ -291,10 +286,6 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       try {
         await addRomFile(file);
       } catch (error) {
-        console.error(
-          `Could not add ROM "${file.name}" to the game library:`,
-          error,
-        );
         failures.push(`${file.name}: ${errorText(error)}`);
       }
     }
@@ -330,7 +321,6 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       selectedGameId.value = null;
       clearLibraryPrompt.value = false;
     } catch (error) {
-      console.error("Could not clear the game library:", error);
       clearLibraryPrompt.value = false;
       onError?.(`Não foi possível limpar a biblioteca: ${errorText(error)}`);
     } finally {
@@ -349,7 +339,6 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       if (selectedGameId.value === game.id) selectedGameId.value = null;
       deletePrompt.value = null;
     } catch (error) {
-      console.error("Could not delete the game from the library:", error);
       deletePrompt.value = null;
       onError?.(`Não foi possível excluir o jogo: ${errorText(error)}`);
     } finally {

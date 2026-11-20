@@ -15,21 +15,12 @@ self.addEventListener("message", async ({ data }) => {
       case "initialize": {
         const system = data.system;
         const rom = new Uint8Array(data.rom);
-        console.log("[snes.worker] initialize:", {
-          id,
-          system,
-          romLength: rom.length,
-        });
         if (system === "NES") {
           await initializeNesWasm();
           emulator = new NesEmulator(rom);
         } else if (system === "SNES") {
           await initializeWasm();
-          console.log(
-            "[snes.worker] Wasm SNES inicializado, instanciando SnesEmulator...",
-          );
           emulator = new SnesEmulator(rom);
-          console.log("[snes.worker] SnesEmulator instanciado com sucesso.");
         } else {
           throw new Error(`Sistema não suportado: ${system}`);
         }
@@ -41,10 +32,6 @@ self.addEventListener("message", async ({ data }) => {
         if (!romData || !gameSystem) {
           throw new Error("Nenhum jogo está carregado para reiniciar.");
         }
-        console.log("[snes.worker] restart:", {
-          gameSystem,
-          romLength: romData.length,
-        });
         const restartedEmulator =
           gameSystem === "NES"
             ? new NesEmulator(romData)
@@ -69,12 +56,6 @@ self.addEventListener("message", async ({ data }) => {
       }
       case "setButton": {
         const player = data.player === 2 ? 2 : 1;
-        console.log("[worker] setButton:", {
-          button: data.button,
-          pressed: data.pressed,
-          player,
-          hasSetButtonForPlayer: typeof emulator?.setButtonForPlayer,
-        });
         if (typeof emulator.setButtonForPlayer === "function") {
           emulator.setButtonForPlayer(data.button, data.pressed, player);
         } else {
@@ -98,12 +79,6 @@ self.addEventListener("message", async ({ data }) => {
     self.postMessage({ id, result }, transfer);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[snes.worker] erro ao processar mensagem:", {
-      id,
-      type,
-      message,
-      error,
-    });
     self.postMessage({ id, error: message });
   }
 });

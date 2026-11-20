@@ -264,13 +264,9 @@ async function generateThumbnails() {
             if (game.previewUrl) URL.revokeObjectURL(game.previewUrl);
             game.preview = preview;
             game.previewUrl = previewUrl;
-          } catch (error) {
-            console.error("Could not capture thumbnail for", game.name, error);
-          }
+          } catch {}
         }
-      } catch (error) {
-        console.error("Error generating thumbnail for", game.name, error);
-      } finally {
+      } catch {} finally {
         await returnToLibrary();
         completed++;
       }

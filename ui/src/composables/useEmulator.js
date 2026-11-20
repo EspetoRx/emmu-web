@@ -145,7 +145,6 @@ export function useEmulator({
   }
 
   function handleCheckpointError(error) {
-    console.error("Could not save the game checkpoint:", error);
     onSetPlayerError?.(
       `Não foi possível salvar o progresso: ${errorText(error)}`,
     );
@@ -177,12 +176,7 @@ export function useEmulator({
         try {
           refreshedPreview = await capturePreview();
           preview = refreshedPreview;
-        } catch (error) {
-          console.warn(
-            "Could not refresh the game preview while saving progress:",
-            error,
-          );
-        }
+        } catch {}
       }
       const stateSavedAt = Date.now();
       const progress = { state, stateSavedAt };
@@ -257,7 +251,6 @@ export function useEmulator({
       historyGame.value = null;
       await openGame(game, { skipScrollCapture: true });
     } catch (error) {
-      console.error("Could not restore a saved game history entry:", error);
       onSetAppError?.(
         `Não foi possível restaurar esse save: ${errorText(error)}`,
       );
@@ -352,7 +345,6 @@ export function useEmulator({
       })
       .catch((error) => {
         if (generation !== emulationGeneration || core !== snesCore) return;
-        console.error("Game emulation stopped:", error);
         onSetPlayerError?.(`A emulação foi interrompida: ${errorText(error)}`);
         stopEmulationLoop();
         core.dispose();
@@ -374,12 +366,6 @@ export function useEmulator({
   }
 
   function setButton(button, pressed, player = 1, event = null) {
-    console.log("[useEmulator setButton] args:", {
-      button,
-      pressed,
-      player,
-      event,
-    });
     event?.preventDefault?.();
     if (!snesCore) return;
     const core = snesCore;
@@ -392,7 +378,6 @@ export function useEmulator({
         ? core.setButton(button, pressed, slot)
         : core.setButton(button, pressed);
     void Promise.resolve(call).catch((error) => {
-      console.error("Could not update the game controller:", error);
       onSetPlayerError?.(
         `Não foi possível atualizar o controle: ${errorText(error)}`,
       );
@@ -401,16 +386,12 @@ export function useEmulator({
 
   function setEmulatorVolume(volume) {
     if (typeof snesCore?.setVolume !== "function") return;
-    void Promise.resolve(snesCore.setVolume(volume)).catch((error) => {
-      console.error("Could not set the emulator volume:", error);
-    });
+    void Promise.resolve(snesCore.setVolume(volume)).catch(() => {});
   }
 
   function setEmulatorP2Enabled(enabled) {
     if (typeof snesCore?.setP2Enabled !== "function") return;
-    void Promise.resolve(snesCore.setP2Enabled(enabled)).catch((error) => {
-      console.error("Could not set the P2 controller:", error);
-    });
+    void Promise.resolve(snesCore.setP2Enabled(enabled)).catch(() => {});
   }
 
   function releaseAllButtons() {
@@ -498,7 +479,6 @@ export function useEmulator({
       ) {
         return;
       }
-      console.error("Could not restart the game:", error);
       stateSaveStatus.value = "";
       onSetPlayerError?.(
         `Não foi possível reiniciar o jogo: ${errorText(error)}`,
@@ -509,7 +489,6 @@ export function useEmulator({
   }
 
   async function openGame(game, { skipScrollCapture = false } = {}) {
-    console.log("[openGame] início:", game.name, game.format);
     if (game.launchBlocked) {
       return;
     }
@@ -537,12 +516,10 @@ export function useEmulator({
     try {
       audioReady = (onAudioInitialize?.() ?? Promise.resolve()).catch(
         (error) => {
-          console.error("[openGame] erro no audioReady:", error);
           onAudioReportError?.(error);
         },
       );
     } catch (error) {
-      console.error("[openGame] erro ao iniciar áudio:", error);
       onAudioReportError?.(error);
     }
 
@@ -573,10 +550,6 @@ export function useEmulator({
     let core = null;
     try {
       await nextTick();
-      console.log(
-        "[openGame] nextTick concluído, canvas:",
-        Boolean(canvasRef.value),
-      );
       const romBytes = new Uint8Array(await game.rom.arrayBuffer());
       if (game.rom instanceof File) {
         const durableRom = new Blob([romBytes], {
@@ -589,11 +562,8 @@ export function useEmulator({
         });
         Object.assign(game, { rom: durableRom, romUnavailable: false });
       }
-      console.log("[openGame] criando emulador...");
       core = await createEmulator(romBytes, game.format);
-      console.log("[openGame] emulador criado, aguardando áudio...");
       await audioReady;
-      console.log("[openGame] áudio pronto");
       if (
         loadGeneration !== gameLoadGeneration ||
         activeGame.value?.id !== game.id
@@ -605,14 +575,12 @@ export function useEmulator({
       // ser enviado também para o core.
       if (typeof core.setVolume === "function") {
         void Promise.resolve(core.setVolume(getAudioVolume?.() ?? 1)).catch(
-          (error) => console.error("Could not apply emulator volume:", error),
+          () => {},
         );
       }
       if (game.state) {
         try {
-          console.log("[openGame] carregando estado salvo...");
           await core.loadState(new Uint8Array(await game.state.arrayBuffer()));
-          console.log("[openGame] estado carregado");
         } catch (error) {
           if (
             loadGeneration !== gameLoadGeneration ||
@@ -637,27 +605,11 @@ export function useEmulator({
 
       setCore(core);
       resumedFromSave.value = Boolean(game.state);
-      console.log("[openGame] rodando primeiro frame...");
       const firstFrame = await core.runFrame();
-      console.log(
-        "[openGame] primeiro frame recebido:",
-        firstFrame?.frame?.length,
-      );
       if (loadGeneration !== gameLoadGeneration || snesCore !== core) {
-        console.warn("[openGame] abortado após runFrame:", {
-          loadGeneration,
-          gameLoadGeneration,
-          sameCore: snesCore === core,
-        });
         if (snesCore !== core) core.dispose();
         return;
       }
-      console.log("[openGame] após guardas:", {
-        loadGeneration,
-        gameLoadGeneration,
-        hasCoreAfter: Boolean(snesCore),
-        sameCore: snesCore === core,
-      });
       drawFrame(firstFrame.frame);
       try {
         onAudioQueueFrame?.(firstFrame);
@@ -665,12 +617,6 @@ export function useEmulator({
         onAudioReportError?.(error);
       }
       isPlaying.value = true;
-      console.log(
-        "[openGame] emulação ativa! hasCore:",
-        hasCore.value,
-        "isPlaying:",
-        isPlaying.value,
-      );
       lastCheckpointAt = performance.now();
       renderedFrameTime = 0;
       skippedFrameTime = 0;
@@ -679,7 +625,6 @@ export function useEmulator({
       void saveCurrentProgress().catch(handleCheckpointError);
       scheduleEmulationFrame(emulationGeneration);
     } catch (error) {
-      console.error("[openGame] falhou no catch:", error);
       if (loadGeneration !== gameLoadGeneration) {
         if (core && snesCore !== core) core.dispose();
         return;
@@ -687,7 +632,6 @@ export function useEmulator({
       core?.dispose();
       if (snesCore === core) setCore(null);
       isPlaying.value = false;
-      console.error("Could not start the game:", error);
       activeGame.value = null;
       if (error?.name === "NotFoundError") {
         const unavailableGame = {
@@ -699,10 +643,6 @@ export function useEmulator({
         try {
           await saveLibraryGame(unavailableGame);
         } catch (persistError) {
-          console.error(
-            "Could not mark the unavailable ROM in the library:",
-            persistError,
-          );
         }
         onSetAppError?.(
           `A ROM "${game.fileName}" não está mais acessível. Reimporte o arquivo para continuar.`,
@@ -716,10 +656,6 @@ export function useEmulator({
         try {
           await saveLibraryGame(blockedGame);
         } catch (persistError) {
-          console.error(
-            "Could not mark the game as launch-blocked in the library:",
-            persistError,
-          );
         }
         onSetAppError?.(`Não foi possível iniciar o jogo: ${errorText(error)}`);
       }

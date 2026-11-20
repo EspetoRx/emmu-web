@@ -175,7 +175,6 @@ export function useControls({ onError, onBeforeOpen } = {}) {
         controlDraft.value = cloneState(validated);
       }
     } catch (error) {
-      console.error("Could not restore the controller bindings:", error);
       onError?.(`Não foi possível carregar os controles: ${errorText(error)}`);
     }
   }
@@ -294,23 +293,11 @@ export function useControls({ onError, onBeforeOpen } = {}) {
       controlSaveStatus.value = "Controles salvos.";
       controlErrorMessage.value = "";
     } catch (error) {
-      console.error("Could not save the controller bindings:", error);
       controlErrorMessage.value = `Não foi possível salvar os controles: ${errorText(error)}`;
     }
   }
 
   function findActionByCode(code) {
-    console.log("[findActionByCode]", {
-      code,
-      p2Enabled: controlBindings.value.p2Enabled,
-      p1Match:
-        CONTROL_ACTIONS.find(({ id }) => controlBindings.value.p1[id] === code)
-          ?.id ?? null,
-      p2Match:
-        CONTROL_ACTIONS.find(({ id }) => controlBindings.value.p2[id] === code)
-          ?.id ?? null,
-      p2Map: controlBindings.value.p2,
-    });
     const p1Action = CONTROL_ACTIONS.find(
       ({ id }) => controlBindings.value.p1[id] === code,
     );
@@ -323,7 +310,6 @@ export function useControls({ onError, onBeforeOpen } = {}) {
       );
       if (p2Action) {
         const res = { button: p2Action.id, player: 2 };
-        console.log("[findActionByCode] returning P2:", res);
         return res;
       }
     }

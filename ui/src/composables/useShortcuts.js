@@ -77,8 +77,7 @@ export function useShortcuts({
         listen("configure-controls", () => openControls?.(1)),
         listen("show-help", () => onShowHelp?.()),
       ]);
-    } catch (error) {
-      console.error("Could not register native menu events:", error);
+    } catch {
       onRegisterError?.("Não foi possível ativar os menus da janela.");
     }
   }

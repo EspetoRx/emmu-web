@@ -61,12 +61,21 @@ class MesenTauriClient {
     });
   }
 
-  saveState() {
-    return Promise.resolve(new Uint8Array(0));
+  async saveState() {
+    const state = await tauriInvoke("mesen_save_state");
+    return state instanceof Uint8Array ? state : new Uint8Array(state || []);
   }
 
-  loadState() {
-    return Promise.resolve();
+  async loadState(state) {
+    const bytes = state instanceof Uint8Array ? state : new Uint8Array(state);
+    await tauriInvoke("mesen_load_state", { state: Array.from(bytes) });
+  }
+
+  setVolume(volume) {
+    const percent = Math.round(Math.min(1, Math.max(0, volume)) * 100);
+    return tauriInvoke("mesen_set_volume", { volume: percent }).catch((err) => {
+      console.error("[MesenTauriClient] setVolume error:", err);
+    });
   }
 
   dispose() {

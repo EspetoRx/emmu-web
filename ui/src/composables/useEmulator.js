@@ -56,6 +56,7 @@ export function useEmulator({
   onAudioQueueFrame,
   onAudioStopPlayback,
   onAudioHideControls,
+  getAudioVolume,
 }) {
   const canvasRef = ref(null);
   let snesCore = null;
@@ -398,6 +399,13 @@ export function useEmulator({
     });
   }
 
+  function setEmulatorVolume(volume) {
+    if (typeof snesCore?.setVolume !== "function") return;
+    void Promise.resolve(snesCore.setVolume(volume)).catch((error) => {
+      console.error("Could not set the emulator volume:", error);
+    });
+  }
+
   function releaseAllButtons() {
     for (const key of pressedButtons) {
       const [slotStr, button] = key.split(":");
@@ -585,6 +593,13 @@ export function useEmulator({
       ) {
         core.dispose();
         return;
+      }
+      // O Mesen toca o som via SDL (fora do WebAudio), então o volume precisa
+      // ser enviado também para o core.
+      if (typeof core.setVolume === "function") {
+        void Promise.resolve(core.setVolume(getAudioVolume?.() ?? 1)).catch(
+          (error) => console.error("Could not apply emulator volume:", error),
+        );
       }
       if (game.state) {
         try {
@@ -788,6 +803,7 @@ export function useEmulator({
     setCanvasElement,
     capturePreview,
     saveGameState,
+    setEmulatorVolume,
     openSaveHistory,
     restoreHistoricalSave,
     setButton,

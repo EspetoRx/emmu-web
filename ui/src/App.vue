@@ -158,6 +158,7 @@ const {
   setCanvasElement,
   capturePreview,
   saveGameState,
+  setEmulatorVolume,
   openSaveHistory,
   restoreHistoricalSave,
   setButton,
@@ -191,7 +192,13 @@ const {
   onAudioHideControls: () => {
     showAudioControls.value = false;
   },
+  getAudioVolume: () => audioVolume.value,
 });
+
+function handleSetAudioVolume(volume) {
+  setAudioVolume(volume);
+  setEmulatorVolume(volume);
+}
 
 const pageTitle = computed(() => (activeGame.value ? activeGame.value.name : "Biblioteca"));
 
@@ -356,7 +363,7 @@ onBeforeUnmount(() => {
       :audio-volume="audioVolume" :show-audio-controls="showAudioControls" :p2-enabled="controlBindings.p2Enabled"
       @return-to-library="returnToLibrary" @restart="restartGame" @open-p1-controls="openControls(1)"
       @open-p2-controls="openControls(2, { enableP2: true })"
-      @toggle-audio-controls="showAudioControls = !showAudioControls" @set-audio-volume="setAudioVolume"
+      @toggle-audio-controls="showAudioControls = !showAudioControls" @set-audio-volume="handleSetAudioVolume"
       @save-state="saveGameState" @set-button="setButton" @register-stage="gameStageRef = $event"
       @register-canvas="setCanvasElement" />
 

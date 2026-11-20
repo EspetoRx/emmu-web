@@ -115,7 +115,7 @@ const emit = defineEmits([
         </button>
         <div v-if="openMenu === 'ajuda'" class="menu-popover help-popover">
           <p>Adicione uma ou mais ROMs e dê dois cliques no cartão para abrir o jogo.</p>
-          <p>Formatos reconhecidos: NES, SNES, FIG.</p>
+          <p>Formatos reconhecidos: NES, SNES, FIG e GBA.</p>
         </div>
       </div>
     </div>

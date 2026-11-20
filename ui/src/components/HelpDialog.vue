@@ -36,7 +36,7 @@ const emit = defineEmits(["close"]);
         }}
       </p>
       <p>Controles: setas, Z/X/A/S, Q/W, Enter e Shift. No celular, use os botões na tela.</p>
-      <p class="supported-formats">Formatos aceitos pela interface: .nes, .sfc, .smc e .fig.</p>
+      <p class="supported-formats">Formatos aceitos pela interface: .nes, .sfc, .smc, .fig e .gba.</p>
       <button class="secondary-button" @click="emit('close')">Fechar</button>
     </section>
   </div>

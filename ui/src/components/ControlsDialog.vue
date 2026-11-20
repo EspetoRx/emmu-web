@@ -3,6 +3,10 @@ import { computed } from "vue";
 import { CONTROL_ACTIONS, formatControlKey } from "../composables/useControls.js";
 
 const props = defineProps({
+  system: {
+    type: String,
+    default: "SNES",
+  },
   open: {
     type: Boolean,
     default: false,
@@ -41,6 +45,12 @@ const emit = defineEmits([
 const activeBindings = computed(() =>
   props.activePlayer === 2 ? props.draft.p2 : props.draft.p1,
 );
+const systemLabel = computed(() => props.system.toUpperCase());
+const visibleActions = computed(() =>
+  systemLabel.value === "GBA"
+    ? CONTROL_ACTIONS.filter(({ id }) => id !== "X" && id !== "Y")
+    : CONTROL_ACTIONS,
+);
 </script>
 
 <template>
@@ -48,7 +58,7 @@ const activeBindings = computed(() =>
     <section class="controls-dialog" role="dialog" aria-modal="true" aria-labelledby="controls-title">
       <div class="controls-dialog-heading">
         <div>
-          <p class="eyebrow">SNES · JOGADOR {{ activePlayer }}</p>
+          <p class="eyebrow">{{ systemLabel }} · JOGADOR {{ activePlayer }}</p>
           <h2 id="controls-title">Configurar controles</h2>
         </div>
         <button class="icon-button" aria-label="Fechar controles" @click="emit('close')">
@@ -77,7 +87,7 @@ const activeBindings = computed(() =>
       </p>
 
       <div class="control-bindings">
-        <div v-for="action in CONTROL_ACTIONS" :key="action.id" class="control-binding">
+        <div v-for="action in visibleActions" :key="action.id" class="control-binding">
           <span>{{ action.label }}</span>
           <button class="control-key-button" :class="{ listening: waitingForControl === action.id }"
             :aria-pressed="waitingForControl === action.id" @click="emit('begin-capture', action.id)">

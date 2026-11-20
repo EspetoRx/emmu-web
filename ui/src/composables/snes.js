@@ -177,11 +177,12 @@ class EmulationWorkerClient {
 }
 
 export async function createEmulator(romBytes, format) {
-  const system = format === "NES" ? "NES" : "SNES";
+  const system =
+    format === "NES" ? "NES" : format === "GBA" ? "GBA" : "SNES";
 
   if (isTauriDesktop()) {
-    // No desktop, NES e SNES rodam no Mesen (com SDL para áudio e save
-    // states). No navegador, os dois continuam no core WASM/worker.
+    // No desktop, NES, SNES e GBA rodam no Mesen (com SDL para áudio e save
+    // states). No navegador, NES/SNES usam WASM e o GBA usa o core Web-GBA.
     const romCopy = new Uint8Array(romBytes);
     const screenSize = await tauriInvoke("mesen_init_rom", {
       romBytes: Array.from(romCopy),

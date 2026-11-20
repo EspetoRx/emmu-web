@@ -147,6 +147,7 @@ const {
 const {
   canvasRef,
   hasCore,
+  frameWidth,
   frameHeight,
   stateSaveStatus,
   isPlaying,
@@ -351,7 +352,7 @@ onBeforeUnmount(() => {
       @close-menu="openMenu = null" @open-file-picker="openFilePicker" @return-to-library="returnToLibrary"
       @request-clear-library="requestClearLibrary" @open-controls="openControls(1)" />
 
-    <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig"
+    <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig,.gba"
       aria-label="Abrir arquivos de jogos" tabindex="-1" @change="addRom" />
 
     <Library v-if="!activeGame" v-model:search="librarySearch" v-model:format="libraryFormat" v-model:sort="librarySort"
@@ -363,7 +364,7 @@ onBeforeUnmount(() => {
       @select-game="handleGameCardClick" @open-game="openGame" @continue-game="openGame" @open-history="openSaveHistory"
       @delete-game="requestDeleteGame" />
 
-    <Player v-else :active-game="activeGame" :frame-height="frameHeight" :has-core="hasCore" :is-playing="isPlaying"
+    <Player v-else :active-game="activeGame" :frame-width="frameWidth" :frame-height="frameHeight" :has-core="hasCore" :is-playing="isPlaying"
       :is-saving-state="isSavingState" :is-restarting="isRestarting" :is-mobile-device="isMobileDevice"
       :audio-volume="audioVolume" :show-audio-controls="showAudioControls" :p2-enabled="controlBindings.p2Enabled"
       @return-to-library="returnToLibrary" @restart="restartGame" @open-p1-controls="openControls(1)"
@@ -375,7 +376,7 @@ onBeforeUnmount(() => {
     <HelpDialog :open="showHelp" :is-mobile-device="isMobileDevice" @close="showHelp = false" />
 
     <ControlsDialog :open="showControls" :draft="controlDraft" :active-player="activePlayer"
-      :waiting-for-control="waitingForControl" :error-message="controlErrorMessage" :save-status="controlSaveStatus"
+      :system="activeGame?.format || 'SNES'" :waiting-for-control="waitingForControl" :error-message="controlErrorMessage" :save-status="controlSaveStatus"
       @close="closeControls" @select-player="selectPlayerTab" @set-p2-enabled="setPlayerTwoEnabled"
       @begin-capture="beginControlCapture" @restore-defaults="restoreDefaultControls" @save="handleSaveControls" />
 

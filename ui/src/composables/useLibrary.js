@@ -54,7 +54,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
           libraryFormat.value === "all" ||
           (libraryFormat.value === "nes"
             ? game.format === "NES"
-            : ["SFC", "SMC", "SNES"].includes(game.format));
+            : libraryFormat.value === "gba"
+              ? game.format === "GBA"
+              : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
         return matchesSearch && matchesFormat;
       })
       .sort((first, second) => {
@@ -120,7 +122,12 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
           break;
         }
         case "console":
-          key = game.format === "NES" ? "NES" : "SNES";
+          key =
+            game.format === "NES"
+              ? "NES"
+              : game.format === "GBA"
+                ? "GBA"
+                : "SNES";
           label = key;
           break;
         case "format":
@@ -155,7 +162,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (typeof saved.search === "string") librarySearch.value = saved.search;
-      if (["all", "nes", "snes"].includes(saved.format))
+      if (["all", "nes", "snes", "gba"].includes(saved.format))
         libraryFormat.value = saved.format;
       if (
         [
@@ -224,9 +231,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
 
   async function addRomFile(file) {
     const extension = file.name.split(".").pop()?.toLowerCase();
-    if (!["nes", "sfc", "smc", "fig"].includes(extension)) {
+    if (!["nes", "sfc", "smc", "fig", "gba"].includes(extension)) {
       throw new Error(
-        "Formato não suportado. Selecione arquivos .nes, .sfc, .smc ou .fig.",
+        "Formato não suportado. Selecione arquivos .nes, .sfc, .smc, .fig ou .gba.",
       );
     }
 

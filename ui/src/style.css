@@ -959,6 +959,10 @@ p {
   aspect-ratio: 16 / 15;
 }
 
+.game-canvas.gba-canvas {
+  aspect-ratio: 3 / 2;
+}
+
 .game-canvas:focus {
   outline: none;
 }
@@ -980,6 +984,10 @@ p {
 
 .game-stage:fullscreen .game-canvas.nes-canvas {
   width: min(100vw, calc(100dvh * 16 / 15));
+}
+
+.game-stage:fullscreen .game-canvas.gba-canvas {
+  width: min(100vw, calc(100dvh * 3 / 2));
 }
 
 .game-stage:fullscreen .touch-controls {

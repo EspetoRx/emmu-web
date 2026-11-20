@@ -1,5 +1,6 @@
 import initializeWasm, { SnesEmulator } from "./../wasm/emmu_snes.js";
 import initializeNesWasm, { NesEmulator } from "./../wasm/nes/emmu_nes.js";
+import initializeGbaWasm, { GbaEmulator } from "./../wasm/gba/emmu_gba.js";
 
 let emulator = null;
 let romData = null;
@@ -21,6 +22,9 @@ self.addEventListener("message", async ({ data }) => {
         } else if (system === "SNES") {
           await initializeWasm();
           emulator = new SnesEmulator(rom);
+        } else if (system === "GBA") {
+          await initializeGbaWasm();
+          emulator = new GbaEmulator(rom);
         } else {
           throw new Error(`Sistema não suportado: ${system}`);
         }
@@ -32,23 +36,33 @@ self.addEventListener("message", async ({ data }) => {
         if (!romData || !gameSystem) {
           throw new Error("Nenhum jogo está carregado para reiniciar.");
         }
-        const restartedEmulator =
-          gameSystem === "NES"
-            ? new NesEmulator(romData)
-            : new SnesEmulator(romData);
+        let restartedEmulator;
+        if (gameSystem === "NES") {
+          restartedEmulator = new NesEmulator(romData);
+        } else if (gameSystem === "GBA") {
+          restartedEmulator = new GbaEmulator(romData);
+        } else {
+          restartedEmulator = new SnesEmulator(romData);
+        }
         emulator.free();
         emulator = restartedEmulator;
         break;
       }
       case "runFrame": {
         const startTime = performance.now();
-        const frame = emulator.runFrame(data.renderGraphics);
-        const audioSamples = emulator.audioSamples();
+        const output = emulator.runFrame(data.renderGraphics);
+        const isGba = gameSystem === "GBA";
+        const frame = isGba ? output.frame : output;
+        const audioSamples = isGba ? output.audioSamples : emulator.audioSamples();
         result = {
           frame,
           audioSamples,
-          audioSampleRate: emulator.audioSampleRate(),
-          audioChannels: emulator.audioChannels?.() ?? 2,
+          audioSampleRate: isGba
+            ? output.audioSampleRate
+            : emulator.audioSampleRate(),
+          audioChannels: isGba
+            ? output.audioChannels
+            : (emulator.audioChannels?.() ?? 2),
           processingTimeMs: performance.now() - startTime,
         };
         transfer = [frame.buffer, audioSamples.buffer];
@@ -59,12 +73,12 @@ self.addEventListener("message", async ({ data }) => {
         if (typeof emulator.setButtonForPlayer === "function") {
           emulator.setButtonForPlayer(data.button, data.pressed, player);
         } else {
-          emulator.setButton(data.button, data.pressed);
+          emulator.setButton(data.button, data.pressed, player);
         }
         break;
       }
       case "saveState": {
-        const state = emulator.saveState();
+        const state = await emulator.saveState();
         result = state;
         transfer = [state.buffer];
         break;

@@ -2,9 +2,12 @@ import { computed, nextTick, ref } from "vue";
 import { saveGameProgress, saveLibraryGame } from "../stores/libraryStore.js";
 import { createEmulator } from "./snes.js";
 
-const FRAME_WIDTH = 256;
+const SNES_FRAME_WIDTH = 256;
+const NES_FRAME_WIDTH = 256;
+const GBA_FRAME_WIDTH = 240;
 const SNES_FRAME_HEIGHT = 224;
 const NES_FRAME_HEIGHT = 240;
+const GBA_FRAME_HEIGHT = 160;
 const FRAME_INTERVAL = 1000 / 60;
 const CHECKPOINT_INTERVAL = 5000;
 
@@ -89,9 +92,16 @@ export function useEmulator({
     snesCore = core;
     hasCore.value = Boolean(core);
   }
-  const frameHeight = computed(() =>
-    activeGame.value?.format === "NES" ? NES_FRAME_HEIGHT : SNES_FRAME_HEIGHT,
-  );
+  const frameWidth = computed(() => {
+    if (activeGame.value?.format === "NES") return NES_FRAME_WIDTH;
+    if (activeGame.value?.format === "GBA") return GBA_FRAME_WIDTH;
+    return SNES_FRAME_WIDTH;
+  });
+  const frameHeight = computed(() => {
+    if (activeGame.value?.format === "NES") return NES_FRAME_HEIGHT;
+    if (activeGame.value?.format === "GBA") return GBA_FRAME_HEIGHT;
+    return SNES_FRAME_HEIGHT;
+  });
 
   function setCanvasElement(el) {
     canvasRef.value = el;
@@ -112,18 +122,21 @@ export function useEmulator({
     if (!context) {
       throw new Error("Não foi possível preparar a tela do jogo.");
     }
-    const expectedLen = FRAME_WIDTH * frameHeight.value * 4;
+    const expectedLen = frameWidth.value * frameHeight.value * 4;
     const inferredHeight =
       frame.length === expectedLen
         ? frameHeight.value
-        : Math.max(1, Math.floor(frame.length / (FRAME_WIDTH * 4)));
+        : Math.max(1, Math.floor(frame.length / (frameWidth.value * 4)));
     if (
       !frameImageData ||
+      frameImageData.width !== frameWidth.value ||
       frameImageData.height !== inferredHeight ||
+      canvas.width !== frameWidth.value ||
       canvas.height !== inferredHeight
     ) {
+      canvas.width = frameWidth.value;
       canvas.height = inferredHeight;
-      frameImageData = new ImageData(FRAME_WIDTH, inferredHeight);
+      frameImageData = new ImageData(frameWidth.value, inferredHeight);
     }
     frameImageData.data.set(frame.subarray(0, frameImageData.data.length));
     context.putImageData(frameImageData, 0, 0);
@@ -734,6 +747,7 @@ export function useEmulator({
   return {
     canvasRef,
     hasCore,
+    frameWidth,
     frameHeight,
     stateSaveStatus,
     isPlaying,

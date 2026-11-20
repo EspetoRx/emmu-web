@@ -1,3 +1,4 @@
+/** emmu/platforms/web/ui/src/composables/snes.js */
 function isTauriDesktop() {
   return (
     typeof window !== "undefined" &&

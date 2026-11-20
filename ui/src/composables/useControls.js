@@ -1,3 +1,4 @@
+/** emmu/platforms/web/ui/src/composables/useControls.js */
 import { ref } from "vue";
 import {
   loadControlBindings,

@@ -26,6 +26,9 @@ const openMenu = ref(null);
 const showHelp = ref(false);
 const libraryScrollY = ref(0);
 const isGeneratingThumbnails = ref(false);
+const isGameLoading = ref(false);
+const loadingGameName = ref("");
+let gameLoadRequest = 0;
 
 const isNativeApp = "__TAURI_INTERNALS__" in window;
 const isMobileDevice =
@@ -141,7 +144,7 @@ const {
 } = useLibrary({
   onError: setAppError,
   onClearError: clearAppError,
-  onRomRecovered: (game) => openGame(game),
+  onRomRecovered: (game) => openGameWithLoading(game),
 });
 
 const {
@@ -197,6 +200,24 @@ const {
   getAudioVolume: () => audioVolume.value,
 });
 
+async function openGameWithLoading(game, options) {
+  if (!game || game.launchBlocked || game.romUnavailable) {
+    return openGame(game, options);
+  }
+
+  const request = ++gameLoadRequest;
+  loadingGameName.value = game.name;
+  isGameLoading.value = true;
+  try {
+    await openGame(game, options);
+  } finally {
+    if (request === gameLoadRequest) {
+      isGameLoading.value = false;
+      loadingGameName.value = "";
+    }
+  }
+}
+
 function handleSetAudioVolume(volume) {
   setAudioVolume(volume);
   setEmulatorVolume(volume);
@@ -220,7 +241,7 @@ async function addRom(event) {
 
 function handleGameCardClick(game) {
   if (isMobileDevice) {
-    openGame(game);
+    openGameWithLoading(game);
   } else {
     selectedGameId.value = game.id;
   }
@@ -361,7 +382,7 @@ onBeforeUnmount(() => {
       :selected-game-id="selectedGameId" :is-mobile-device="isMobileDevice" :open-menu="openMenu"
       :is-active="!activeGame" :saved-scroll-y="libraryScrollY" @open-file-picker="openFilePicker"
       @request-clear-library="requestClearLibrary" @toggle-menu="toggleMenu" @clear-filters="clearLibraryFilters"
-      @select-game="handleGameCardClick" @open-game="openGame" @continue-game="openGame" @open-history="openSaveHistory"
+      @select-game="handleGameCardClick" @open-game="openGameWithLoading" @continue-game="openGameWithLoading" @open-history="openSaveHistory"
       @delete-game="requestDeleteGame" />
 
     <Player v-else :active-game="activeGame" :frame-width="frameWidth" :frame-height="frameHeight" :has-core="hasCore" :is-playing="isPlaying"
@@ -391,6 +412,16 @@ onBeforeUnmount(() => {
 
     <RecoveryDialog :prompt="recoveryPrompt" :is-restarting="isRestarting" @dismiss="dismissRecoveryPrompt"
       @restart="restartGame" />
+
+    <div v-if="isGameLoading" class="modal-backdrop loading-backdrop">
+      <section class="loading-dialog" role="status" aria-live="polite" aria-label="Carregando jogo">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <p class="eyebrow">Emmu</p>
+        <h2 id="loading-title">Carregando jogo</h2>
+        <p class="loading-game">{{ loadingGameName }}</p>
+        <p class="loading-hint">Preparando a ROM e o emulador...</p>
+      </section>
+    </div>
 
     <StatusBar :active-game="activeGame" :save-status="stateSaveStatus" />
   </main>

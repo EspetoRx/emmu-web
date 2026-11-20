@@ -8,6 +8,23 @@ const NES_FRAME_HEIGHT = 240;
 const FRAME_INTERVAL = 1000 / 60;
 const CHECKPOINT_INTERVAL = 5000;
 
+function isTauriDesktop() {
+  return (
+    typeof window !== "undefined" &&
+    Boolean(window.__TAURI_INTERNALS__ || window.__TAURI__?.core?.invoke)
+  );
+}
+
+async function tauriInvoke(cmd, args) {
+  if (window.__TAURI_INTERNALS__?.invoke) {
+    return window.__TAURI_INTERNALS__.invoke(cmd, args);
+  }
+  if (window.__TAURI__?.core?.invoke) {
+    return window.__TAURI__?.core.invoke(cmd, args);
+  }
+  throw new Error("API invoke do Tauri não disponível.");
+}
+
 function errorText(error) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -94,10 +111,20 @@ export function useEmulator({
     if (!context) {
       throw new Error("Não foi possível preparar a tela do jogo.");
     }
-    if (!frameImageData || frameImageData.height !== frameHeight.value) {
-      frameImageData = new ImageData(FRAME_WIDTH, frameHeight.value);
+    const expectedLen = FRAME_WIDTH * frameHeight.value * 4;
+    const inferredHeight =
+      frame.length === expectedLen
+        ? frameHeight.value
+        : Math.max(1, Math.floor(frame.length / (FRAME_WIDTH * 4)));
+    if (
+      !frameImageData ||
+      frameImageData.height !== inferredHeight ||
+      canvas.height !== inferredHeight
+    ) {
+      canvas.height = inferredHeight;
+      frameImageData = new ImageData(FRAME_WIDTH, inferredHeight);
     }
-    frameImageData.data.set(frame);
+    frameImageData.data.set(frame.subarray(0, frameImageData.data.length));
     context.putImageData(frameImageData, 0, 0);
   }
 
@@ -738,6 +765,11 @@ export function useEmulator({
       void saveCurrentProgress()
         .catch(handleCheckpointError)
         .finally(() => core.dispose());
+    }
+    // Libera recursos do MesenCore antes de fechar, evitando crash em
+    // VideoRenderer::IsRecording() ao encerrar a aplicação desktop.
+    if (isTauriDesktop()) {
+      void tauriInvoke("mesen_release", {}).catch(() => {});
     }
   }
 

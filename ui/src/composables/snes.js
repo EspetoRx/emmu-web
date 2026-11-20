@@ -1,3 +1,80 @@
+function isTauriDesktop() {
+  return (
+    typeof window !== "undefined" &&
+    Boolean(window.__TAURI_INTERNALS__ || window.__TAURI__?.core?.invoke)
+  );
+}
+
+async function tauriInvoke(cmd, args) {
+  if (window.__TAURI_INTERNALS__?.invoke) {
+    return window.__TAURI_INTERNALS__.invoke(cmd, args);
+  }
+  if (window.__TAURI__?.core?.invoke) {
+    return window.__TAURI__.core.invoke(cmd, args);
+  }
+  throw new Error("API invoke do Tauri não disponível.");
+}
+
+class MesenTauriClient {
+  constructor(romBytes, screenSize) {
+    this.romBytes = romBytes;
+    this.width = screenSize?.width || 256;
+    this.height = screenSize?.height || 239;
+    this.disposed = false;
+  }
+
+  async runFrame(renderGraphics = true) {
+    if (this.disposed) {
+      throw new Error("O emulador já foi encerrado.");
+    }
+    const res = await tauriInvoke("mesen_run_frame", { renderGraphics });
+    return {
+      frame: new Uint8ClampedArray(res.frame || []),
+      width: res.width || this.width,
+      height: res.height || this.height,
+      processingTimeMs: res.processingTimeMs ?? 0,
+    };
+  }
+
+  async restart() {
+    if (this.disposed) {
+      throw new Error("O emulador já foi encerrado.");
+    }
+    await tauriInvoke("mesen_init_rom", {
+      romBytes: Array.from(this.romBytes),
+    });
+  }
+
+  setButton(button, pressed, player = 1) {
+    if (this.disposed) {
+      return Promise.resolve();
+    }
+    const slot = player === 2 ? 2 : 1;
+    console.log("[MesenTauriClient] setButton:", { button, pressed, player, slot });
+    return tauriInvoke("mesen_set_button", {
+      button,
+      pressed: Boolean(pressed),
+      player: slot,
+    }).catch((err) => {
+      console.error("[MesenTauriClient] setButton error:", err);
+    });
+  }
+
+  saveState() {
+    return Promise.resolve(new Uint8Array(0));
+  }
+
+  loadState() {
+    return Promise.resolve();
+  }
+
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    void tauriInvoke("mesen_stop").catch(() => {});
+  }
+}
+
 class EmulationWorkerClient {
   constructor() {
     this.worker = new Worker(
@@ -98,6 +175,15 @@ export async function createEmulator(romBytes, format) {
     bufferByteLength: romBytes?.buffer?.byteLength,
     byteOffset: romBytes?.byteOffset,
   });
+
+  if (system === "NES" && isTauriDesktop()) {
+    const romCopy = new Uint8Array(romBytes);
+    const screenSize = await tauriInvoke("mesen_init_rom", {
+      romBytes: Array.from(romCopy),
+    });
+    return new MesenTauriClient(romCopy, screenSize);
+  }
+
   const emulator = new EmulationWorkerClient();
   try {
     await emulator.request("initialize", { rom: romBytes, system }, [

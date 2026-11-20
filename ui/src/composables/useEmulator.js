@@ -406,6 +406,13 @@ export function useEmulator({
     });
   }
 
+  function setEmulatorP2Enabled(enabled) {
+    if (typeof snesCore?.setP2Enabled !== "function") return;
+    void Promise.resolve(snesCore.setP2Enabled(enabled)).catch((error) => {
+      console.error("Could not set the P2 controller:", error);
+    });
+  }
+
   function releaseAllButtons() {
     for (const key of pressedButtons) {
       const [slotStr, button] = key.split(":");
@@ -804,6 +811,7 @@ export function useEmulator({
     capturePreview,
     saveGameState,
     setEmulatorVolume,
+    setEmulatorP2Enabled,
     openSaveHistory,
     restoreHistoricalSave,
     setButton,

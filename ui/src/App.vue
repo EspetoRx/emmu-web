@@ -159,6 +159,7 @@ const {
   capturePreview,
   saveGameState,
   setEmulatorVolume,
+  setEmulatorP2Enabled,
   openSaveHistory,
   restoreHistoricalSave,
   setButton,
@@ -198,6 +199,14 @@ const {
 function handleSetAudioVolume(volume) {
   setAudioVolume(volume);
   setEmulatorVolume(volume);
+}
+
+async function handleSaveControls() {
+  await saveControls();
+  // Aplica a conexão/desconexão do P2 ao core em execução. Como a porta
+  // sempre existe no Mesen, desabilitar apenas libera os botões e o findActionByCode
+  // deixa de mapear as teclas do P2.
+  setEmulatorP2Enabled(controlBindings.value.p2Enabled);
 }
 
 const pageTitle = computed(() => (activeGame.value ? activeGame.value.name : "Biblioteca"));
@@ -372,7 +381,7 @@ onBeforeUnmount(() => {
     <ControlsDialog :open="showControls" :draft="controlDraft" :active-player="activePlayer"
       :waiting-for-control="waitingForControl" :error-message="controlErrorMessage" :save-status="controlSaveStatus"
       @close="closeControls" @select-player="selectPlayerTab" @set-p2-enabled="setPlayerTwoEnabled"
-      @begin-capture="beginControlCapture" @restore-defaults="restoreDefaultControls" @save="saveControls" />
+      @begin-capture="beginControlCapture" @restore-defaults="restoreDefaultControls" @save="handleSaveControls" />
 
     <SaveHistoryDialog :game="historyGame" :is-restoring="isRestoringSave" @close="historyGame = null"
       @restore="restoreHistoricalSave" />

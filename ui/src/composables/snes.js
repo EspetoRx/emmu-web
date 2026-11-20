@@ -17,8 +17,9 @@ async function tauriInvoke(cmd, args) {
 }
 
 class MesenTauriClient {
-  constructor(romBytes, screenSize) {
+  constructor(romBytes, screenSize, console = "NES") {
     this.romBytes = romBytes;
+    this.console = console;
     this.width = screenSize?.width || 256;
     this.height = screenSize?.height || 239;
     this.disposed = false;
@@ -43,6 +44,7 @@ class MesenTauriClient {
     }
     await tauriInvoke("mesen_init_rom", {
       romBytes: Array.from(this.romBytes),
+      console: this.console,
     });
   }
 
@@ -76,6 +78,14 @@ class MesenTauriClient {
     return tauriInvoke("mesen_set_volume", { volume: percent }).catch((err) => {
       console.error("[MesenTauriClient] setVolume error:", err);
     });
+  }
+
+  setP2Enabled(enabled) {
+    return tauriInvoke("mesen_set_p2_enabled", { enabled: Boolean(enabled) }).catch(
+      (err) => {
+        console.error("[MesenTauriClient] setP2Enabled error:", err);
+      },
+    );
   }
 
   dispose() {
@@ -186,12 +196,15 @@ export async function createEmulator(romBytes, format) {
     byteOffset: romBytes?.byteOffset,
   });
 
-  if (system === "NES" && isTauriDesktop()) {
+  if (isTauriDesktop()) {
+    // No desktop, NES e SNES rodam no Mesen (com SDL para áudio e save
+    // states). No navegador, os dois continuam no core WASM/worker.
     const romCopy = new Uint8Array(romBytes);
     const screenSize = await tauriInvoke("mesen_init_rom", {
       romBytes: Array.from(romCopy),
+      console: system,
     });
-    return new MesenTauriClient(romCopy, screenSize);
+    return new MesenTauriClient(romCopy, screenSize, system);
   }
 
   const emulator = new EmulationWorkerClient();

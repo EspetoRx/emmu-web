@@ -74,40 +74,77 @@ function runTransaction(storeName, mode, operation) {
   );
 }
 
-export async function loadLibraryGames() {
-  const records = await runTransaction(
-    GAME_STORE,
-    "readonly",
-    (store, setResult) => {
-      const request = store.getAll();
-      request.onsuccess = () =>
-        setResult(request.result.sort((a, b) => b.addedAt - a.addedAt));
-    },
-  );
+function normalizeGameRecord(game) {
+  let rom = game.rom;
+  if (rom instanceof ArrayBuffer) {
+    rom = new Blob([rom], { type: "application/octet-stream" });
+  }
+  let state = game.state;
+  if (state instanceof ArrayBuffer) {
+    state = new Blob([state], { type: "application/octet-stream" });
+  }
+  let preview = game.preview;
+  if (preview instanceof ArrayBuffer) {
+    preview = new Blob([preview], { type: "image/png" });
+  }
+  let saveHistory = Array.isArray(game.saveHistory)
+    ? game.saveHistory.map((h) => {
+        let s = h.state;
+        if (s instanceof ArrayBuffer) {
+          s = new Blob([s], { type: "application/octet-stream" });
+        }
+        return { ...h, state: s };
+      })
+    : [];
+  return { ...game, rom, state, preview, saveHistory };
+}
 
-  return records.map((game) => {
-    let rom = game.rom;
-    if (rom instanceof ArrayBuffer) {
-      rom = new Blob([rom], { type: "application/octet-stream" });
-    }
-    let state = game.state;
-    if (state instanceof ArrayBuffer) {
-      state = new Blob([state], { type: "application/octet-stream" });
-    }
-    let preview = game.preview;
-    if (preview instanceof ArrayBuffer) {
-      preview = new Blob([preview], { type: "image/png" });
-    }
-    let saveHistory = Array.isArray(game.saveHistory)
-      ? game.saveHistory.map((h) => {
-          let s = h.state;
-          if (s instanceof ArrayBuffer) {
-            s = new Blob([s], { type: "application/octet-stream" });
-          }
-          return { ...h, state: s };
-        })
-      : [];
-    return { ...game, rom, state, preview, saveHistory };
+/// Carrega a biblioteca com progresso real: um cursor percorre os registros e
+/// `onProgress(current, total)` é chamado a cada jogo normalizado.
+export async function loadLibraryGames(onProgress) {
+  const database = await openDatabase();
+
+  return new Promise((resolve, reject) => {
+    const records = [];
+    const transaction = database.transaction(GAME_STORE, "readonly");
+    const store = transaction.objectStore(GAME_STORE);
+
+    const countRequest = store.count();
+    countRequest.onsuccess = () => {
+      const total = countRequest.result;
+      onProgress?.(0, total);
+      if (total === 0) return;
+
+      const cursorRequest = store.openCursor();
+      cursorRequest.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (!cursor) return;
+        records.push(normalizeGameRecord(cursor.value));
+        onProgress?.(records.length, total);
+        cursor.continue();
+      };
+      cursorRequest.onerror = () => transaction.abort();
+    };
+    countRequest.onerror = () => transaction.abort();
+
+    transaction.oncomplete = () => {
+      database.close();
+      resolve(records.sort((a, b) => b.addedAt - a.addedAt));
+    };
+    transaction.onerror = (event) => {
+      database.close();
+      reject(
+        event.target?.error ??
+          transaction.error ??
+          new Error("Falha ao carregar a biblioteca local."),
+      );
+    };
+    transaction.onabort = () => {
+      database.close();
+      reject(
+        transaction.error ?? new Error("Falha ao carregar a biblioteca local."),
+      );
+    };
   });
 }
 

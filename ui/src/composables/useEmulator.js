@@ -5,9 +5,11 @@ import { createEmulator } from "./snes.js";
 const SNES_FRAME_WIDTH = 256;
 const NES_FRAME_WIDTH = 256;
 const GBA_FRAME_WIDTH = 240;
+const GBC_FRAME_WIDTH = 160;
 const SNES_FRAME_HEIGHT = 224;
 const NES_FRAME_HEIGHT = 240;
 const GBA_FRAME_HEIGHT = 160;
+const GBC_FRAME_HEIGHT = 144;
 const FRAME_INTERVAL = 1000 / 60;
 const CHECKPOINT_INTERVAL = 5000;
 
@@ -30,6 +32,10 @@ async function tauriInvoke(cmd, args) {
 
 function errorText(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isGameBoyFormat(format) {
+  return format === "GBC" || format === "GB";
 }
 
 function formatClockTime(date = new Date()) {
@@ -93,13 +99,17 @@ export function useEmulator({
     hasCore.value = Boolean(core);
   }
   const frameWidth = computed(() => {
-    if (activeGame.value?.format === "NES") return NES_FRAME_WIDTH;
-    if (activeGame.value?.format === "GBA") return GBA_FRAME_WIDTH;
+    const format = activeGame.value?.format;
+    if (format === "NES") return NES_FRAME_WIDTH;
+    if (format === "GBA") return GBA_FRAME_WIDTH;
+    if (isGameBoyFormat(format)) return GBC_FRAME_WIDTH;
     return SNES_FRAME_WIDTH;
   });
   const frameHeight = computed(() => {
-    if (activeGame.value?.format === "NES") return NES_FRAME_HEIGHT;
-    if (activeGame.value?.format === "GBA") return GBA_FRAME_HEIGHT;
+    const format = activeGame.value?.format;
+    if (format === "NES") return NES_FRAME_HEIGHT;
+    if (format === "GBA") return GBA_FRAME_HEIGHT;
+    if (isGameBoyFormat(format)) return GBC_FRAME_HEIGHT;
     return SNES_FRAME_HEIGHT;
   });
 

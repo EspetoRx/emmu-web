@@ -124,6 +124,7 @@ onMounted(() => {
             <option value="nes">NES</option>
             <option value="snes">SNES (SFC/SMC)</option>
             <option value="gba">GBA</option>
+            <option value="gbc">GBC (GB/GBC)</option>
           </select>
           <label for="library-sort">Organizar por</label>
           <select id="library-sort" v-model="sort">
@@ -190,7 +191,7 @@ onMounted(() => {
       <button class="secondary-button" @click="emit('open-file-picker')">
         Escolher arquivos
       </button>
-      <span class="supported-formats">Compatível com .nes, .sfc, .smc, .fig e .gba</span>
+      <span class="supported-formats">Compatível com .nes, .sfc, .smc, .fig, .gba, .gb e .gbc</span>
     </div>
   </section>
 </template>

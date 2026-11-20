@@ -1,6 +1,7 @@
 import initializeWasm, { SnesEmulator } from "./../wasm/emmu_snes.js";
 import initializeNesWasm, { NesEmulator } from "./../wasm/nes/emmu_nes.js";
 import initializeGbaWasm, { GbaEmulator } from "./../wasm/gba/emmu_gba.js";
+import initializeGbcWasm, { GbcEmulator } from "./../wasm/gbc/emmu_gbc.js";
 
 let emulator = null;
 let romData = null;
@@ -25,6 +26,9 @@ self.addEventListener("message", async ({ data }) => {
         } else if (system === "GBA") {
           await initializeGbaWasm();
           emulator = new GbaEmulator(rom);
+        } else if (system === "GBC") {
+          await initializeGbcWasm();
+          emulator = new GbcEmulator(rom);
         } else {
           throw new Error(`Sistema não suportado: ${system}`);
         }
@@ -41,6 +45,8 @@ self.addEventListener("message", async ({ data }) => {
           restartedEmulator = new NesEmulator(romData);
         } else if (gameSystem === "GBA") {
           restartedEmulator = new GbaEmulator(romData);
+        } else if (gameSystem === "GBC") {
+          restartedEmulator = new GbcEmulator(romData);
         } else {
           restartedEmulator = new SnesEmulator(romData);
         }

@@ -65,6 +65,9 @@ const gameStageRef = ref(null);
 const canvasRef = ref(null);
 const isFullscreen = ref(false);
 const isGba = computed(() => props.activeGame.format === "GBA");
+const isGbc = computed(() =>
+  ["GBC", "GB"].includes(props.activeGame.format),
+);
 
 function handleFullscreenChange() {
   isFullscreen.value = document.fullscreenElement === gameStageRef.value;
@@ -128,7 +131,7 @@ onBeforeUnmount(() => {
           <span>P1</span>
         </button>
 
-        <button v-if="!isGba" type="button" class="secondary-button pad-button" :class="{ 'pad-connected': p2Enabled }"
+        <button v-if="!isGba && !isGbc" type="button" class="secondary-button pad-button" :class="{ 'pad-connected': p2Enabled }"
           :aria-pressed="p2Enabled" :aria-label="p2Enabled
               ? 'Configurar manete do Jogador 2'
               : 'Inserir e configurar manete do Jogador 2'
@@ -187,14 +190,14 @@ onBeforeUnmount(() => {
 
     <div ref="gameStageRef" class="game-stage">
       <canvas ref="canvasRef" class="game-canvas"
-        :class="{ 'nes-canvas': activeGame.format === 'NES', 'gba-canvas': isGba }" :width="frameWidth"
+        :class="{ 'nes-canvas': activeGame.format === 'NES', 'gba-canvas': isGba, 'gbc-canvas': isGbc }" :width="frameWidth"
         :height="frameHeight" aria-label="Tela do jogo" tabindex="0" @contextmenu.prevent></canvas>
       <button v-if="isFullscreen" class="fullscreen-exit-button" aria-label="Sair da tela cheia"
         @click="toggleFullscreen">
         Sair da tela cheia
       </button>
       <div v-if="isMobileDevice" class="touch-controls"
-        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isGba ? 'GBA' : 'SNES'}`">
+        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isGba ? 'GBA' : isGbc ? 'GBC' : 'SNES'}`">
         <div class="touch-dpad">
           <button class="touch-button dpad-up" aria-label="Cima" @pointerdown="emit('set-button', 'Up', true, $event)"
             @pointerup="emit('set-button', 'Up', false, $event)"
@@ -224,13 +227,13 @@ onBeforeUnmount(() => {
             →
           </button>
         </div>
-        <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba }">
-          <button v-if="!isGba" class="touch-button" aria-label="Y" @pointerdown="emit('set-button', 'Y', true, $event)"
+        <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba, 'gbc-action-pad': isGbc }">
+          <button v-if="!isGba && !isGbc" class="touch-button" aria-label="Y" @pointerdown="emit('set-button', 'Y', true, $event)"
             @pointerup="emit('set-button', 'Y', false, $event)" @pointercancel="emit('set-button', 'Y', false, $event)"
             @pointerleave="emit('set-button', 'Y', false, $event)">
             Y
           </button>
-          <button v-if="!isGba" class="touch-button" aria-label="X" @pointerdown="emit('set-button', 'X', true, $event)"
+          <button v-if="!isGba && !isGbc" class="touch-button" aria-label="X" @pointerdown="emit('set-button', 'X', true, $event)"
             @pointerup="emit('set-button', 'X', false, $event)" @pointercancel="emit('set-button', 'X', false, $event)"
             @pointerleave="emit('set-button', 'X', false, $event)">
             X

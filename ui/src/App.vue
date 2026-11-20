@@ -17,6 +17,7 @@ import SaveHistoryDialog from "./components/SaveHistoryDialog.vue";
 import ClearLibraryDialog from "./components/ClearLibraryDialog.vue";
 import DeleteDialog from "./components/DeleteDialog.vue";
 import RecoveryDialog from "./components/RecoveryDialog.vue";
+import LibraryLoadingOverlay from "./components/LibraryLoadingOverlay.vue";
 import StatusBar from "./components/StatusBar.vue";
 
 const romInput = ref(null);
@@ -132,6 +133,9 @@ const {
   clearLibraryPrompt,
   isDeletingGame,
   isClearingLibrary,
+  isLibraryLoading,
+  libraryLoadingLabel,
+  libraryLoadingProgress,
   loadLibraryFilters,
   clearLibraryFilters,
   restoreLibrary,
@@ -381,7 +385,7 @@ onBeforeUnmount(() => {
       @close-menu="openMenu = null" @open-file-picker="openFilePicker" @return-to-library="returnToLibrary"
       @request-clear-library="requestClearLibrary" @open-controls="openControls(1)" />
 
-    <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig,.gba"
+    <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig,.gba,.gb,.gbc"
       aria-label="Abrir arquivos de jogos" tabindex="-1" @change="addRom" />
 
     <Library v-if="!activeGame" v-model:search="librarySearch" v-model:format="libraryFormat" v-model:sort="librarySort"
@@ -420,6 +424,9 @@ onBeforeUnmount(() => {
 
     <RecoveryDialog :prompt="recoveryPrompt" :is-restarting="isRestarting" @dismiss="dismissRecoveryPrompt"
       @restart="restartGame" />
+
+    <LibraryLoadingOverlay :open="isLibraryLoading" :label="libraryLoadingLabel"
+      :current="libraryLoadingProgress.current" :total="libraryLoadingProgress.total" />
 
     <div v-if="isGameLoading" class="modal-backdrop loading-backdrop">
       <section class="loading-dialog" role="status" aria-live="polite" aria-label="Carregando jogo">

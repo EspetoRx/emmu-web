@@ -46,11 +46,17 @@ const activeBindings = computed(() =>
   props.activePlayer === 2 ? props.draft.p2 : props.draft.p1,
 );
 const systemLabel = computed(() => props.system.toUpperCase());
-const visibleActions = computed(() =>
-  systemLabel.value === "GBA"
-    ? CONTROL_ACTIONS.filter(({ id }) => id !== "X" && id !== "Y")
-    : CONTROL_ACTIONS,
-);
+const visibleActions = computed(() => {
+  if (["GBC", "GB"].includes(systemLabel.value)) {
+    return CONTROL_ACTIONS.filter(
+      ({ id }) => !["X", "Y", "L", "R", "U", "D"].includes(id),
+    );
+  }
+  if (systemLabel.value === "GBA") {
+    return CONTROL_ACTIONS.filter(({ id }) => id !== "X" && id !== "Y");
+  }
+  return CONTROL_ACTIONS;
+});
 </script>
 
 <template>

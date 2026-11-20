@@ -7,6 +7,10 @@ import {
 } from "../stores/libraryStore.js";
 
 const LIBRARY_FILTERS_STORAGE_KEY = "emmu.library.filters";
+const GAMEBOY_FORMATS = new Set(["GBC", "GB"]);
+// Mesmo quando a leitura do IndexedDB é instantânea, mantém o progresso visível
+// por tempo suficiente para o usuário perceber que a biblioteca foi carregada.
+const MIN_LIBRARY_LOADING_MS = 450;
 
 function errorText(error) {
   return error instanceof Error ? error.message : String(error);
@@ -39,6 +43,12 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
   const clearLibraryPrompt = ref(false);
   const isDeletingGame = ref(false);
   const isClearingLibrary = ref(false);
+  const isLibraryLoading = ref(false);
+  const libraryLoadingLabel = ref("");
+  const libraryLoadingProgress = ref({ current: 0, total: 0 });
+  let libraryLoadingRequests = 0;
+  let libraryLoadingStartedAt = 0;
+  let libraryLoadingTimer = null;
 
   const filteredGames = computed(() => {
     const query = normalizeSearchText(librarySearch.value.trim());
@@ -56,7 +66,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
             ? game.format === "NES"
             : libraryFormat.value === "gba"
               ? game.format === "GBA"
-              : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
+              : libraryFormat.value === "gbc"
+                ? GAMEBOY_FORMATS.has(game.format)
+                : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
         return matchesSearch && matchesFormat;
       })
       .sort((first, second) => {
@@ -127,7 +139,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
               ? "NES"
               : game.format === "GBA"
                 ? "GBA"
-                : "SNES";
+                : GAMEBOY_FORMATS.has(game.format)
+                  ? "GBC"
+                  : "SNES";
           label = key;
           break;
         case "format":
@@ -162,7 +176,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (typeof saved.search === "string") librarySearch.value = saved.search;
-      if (["all", "nes", "snes", "gba"].includes(saved.format))
+      if (["all", "nes", "snes", "gba", "gbc"].includes(saved.format))
         libraryFormat.value = saved.format;
       if (
         [
@@ -217,23 +231,55 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
     libraryGroup.value = "none";
   }
 
+  function beginLibraryLoading(label) {
+    if (libraryLoadingTimer) {
+      clearTimeout(libraryLoadingTimer);
+      libraryLoadingTimer = null;
+    }
+    libraryLoadingRequests += 1;
+    libraryLoadingStartedAt = performance.now();
+    libraryLoadingLabel.value = label;
+    libraryLoadingProgress.value = { current: 0, total: 0 };
+    isLibraryLoading.value = true;
+  }
+
+  function endLibraryLoading() {
+    libraryLoadingRequests = Math.max(0, libraryLoadingRequests - 1);
+    if (libraryLoadingRequests > 0) return;
+    const remaining = Math.max(
+      0,
+      MIN_LIBRARY_LOADING_MS - (performance.now() - libraryLoadingStartedAt),
+    );
+    libraryLoadingTimer = setTimeout(() => {
+      libraryLoadingTimer = null;
+      isLibraryLoading.value = false;
+      libraryLoadingLabel.value = "";
+      libraryLoadingProgress.value = { current: 0, total: 0 };
+    }, remaining);
+  }
+
   async function restoreLibrary() {
+    beginLibraryLoading("Carregando biblioteca");
     try {
-      const records = await loadLibraryGames();
+      const records = await loadLibraryGames((current, total) => {
+        libraryLoadingProgress.value = { current, total };
+      });
       games.value = records.map((game) => ({
         ...game,
         previewUrl: game.preview ? URL.createObjectURL(game.preview) : null,
       }));
     } catch (error) {
       onError?.(`Não foi possível carregar a biblioteca: ${errorText(error)}`);
+    } finally {
+      endLibraryLoading();
     }
   }
 
   async function addRomFile(file) {
     const extension = file.name.split(".").pop()?.toLowerCase();
-    if (!["nes", "sfc", "smc", "fig", "gba"].includes(extension)) {
+    if (!["nes", "sfc", "smc", "fig", "gba", "gb", "gbc"].includes(extension)) {
       throw new Error(
-        "Formato não suportado. Selecione arquivos .nes, .sfc, .smc, .fig ou .gba.",
+        "Formato não suportado. Selecione arquivos .nes, .sfc, .smc, .fig, .gba, .gb ou .gbc.",
       );
     }
 
@@ -289,22 +335,35 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
   async function importRomFiles(files) {
     if (!files.length) return;
     const failures = [];
-    for (const file of files) {
-      try {
-        await addRomFile(file);
-      } catch (error) {
-        failures.push(`${file.name}: ${errorText(error)}`);
-      }
-    }
+    beginLibraryLoading("Importando jogos");
+    libraryLoadingProgress.value = { current: 0, total: files.length };
 
-    if (failures.length) {
-      const message =
-        failures.length === 1
-          ? `Não foi possível importar: ${failures[0]}`
-          : `Alguns arquivos não puderam ser importados: ${failures.join(" · ")}`;
-      onError?.(message);
-    } else {
-      onClearError?.();
+    try {
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        try {
+          await addRomFile(file);
+        } catch (error) {
+          failures.push(`${file.name}: ${errorText(error)}`);
+        } finally {
+          libraryLoadingProgress.value = {
+            current: index + 1,
+            total: files.length,
+          };
+        }
+      }
+
+      if (failures.length) {
+        const message =
+          failures.length === 1
+            ? `Não foi possível importar: ${failures[0]}`
+            : `Alguns arquivos não puderam ser importados: ${failures.join(" · ")}`;
+        onError?.(message);
+      } else {
+        onClearError?.();
+      }
+    } finally {
+      endLibraryLoading();
     }
   }
 
@@ -374,6 +433,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
     clearLibraryPrompt,
     isDeletingGame,
     isClearingLibrary,
+    isLibraryLoading,
+    libraryLoadingLabel,
+    libraryLoadingProgress,
     loadLibraryFilters,
     clearLibraryFilters,
     restoreLibrary,

@@ -23,18 +23,38 @@ class MesenTauriClient {
     this.width = screenSize?.width || 256;
     this.height = screenSize?.height || 239;
     this.disposed = false;
+    this.frameNonce = 0;
+    this.frameImage = new Image();
   }
 
   async runFrame(renderGraphics = true) {
     if (this.disposed) {
       throw new Error("O emulador já foi encerrado.");
     }
-    const res = await tauriInvoke("mesen_run_frame", { renderGraphics });
+    const start = performance.now();
+    const info = await tauriInvoke("mesen_run_frame", { renderGraphics });
+    if (!renderGraphics || !info.has_frame) {
+      return {
+        frame: new Uint8ClampedArray(0),
+        width: info.width || this.width,
+        height: info.height || this.height,
+        processingTimeMs: performance.now() - start,
+      };
+    }
+    // O frame vem como BMP por um protocolo customizado: o WebView decodifica
+    // nativamente sem converter ~245 KB em array JSON (o que travava a imagem
+    // no desktop enquanto o SDL continuava tocando áudio).
+    const image = this.frameImage;
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error("Falha ao carregar frame do Mesen."));
+      image.src = `emmu-frame://localhost/frame?n=${++this.frameNonce}`;
+    });
     return {
-      frame: new Uint8ClampedArray(res.frame || []),
-      width: res.width || this.width,
-      height: res.height || this.height,
-      processingTimeMs: res.processingTimeMs ?? 0,
+      frame: image,
+      width: image.naturalWidth || info.width || this.width,
+      height: image.naturalHeight || info.height || this.height,
+      processingTimeMs: performance.now() - start,
     };
   }
 

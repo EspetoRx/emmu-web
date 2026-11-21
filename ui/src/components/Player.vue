@@ -70,6 +70,17 @@ const isGameBoy = computed(() =>
 );
 const isPce = computed(() => props.activeGame.format === "PCE");
 
+// Os controles de toque são sempre do jogador 1. O quarto argumento carrega o
+// PointerEvent para `preventDefault()` (evita scroll/zoom e foco preso no
+// <button>, que bloquearia o teclado em dispositivos híbridos).
+function pressButton(button, pressed, event, player = 1) {
+  event?.preventDefault?.();
+  // Sem isso, o <button> retém o foco e useShortcuts ignora o teclado
+  // enquanto o alvo for um botão (dispositivos híbridos touch + teclado).
+  if (pressed) event?.currentTarget?.blur?.();
+  emit("set-button", button, pressed, player, event);
+}
+
 function handleFullscreenChange() {
   isFullscreen.value = document.fullscreenElement === gameStageRef.value;
 }
@@ -200,77 +211,77 @@ onBeforeUnmount(() => {
       <div v-if="isMobileDevice" class="touch-controls"
         :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isGba ? 'GBA' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
         <div class="touch-dpad">
-          <button class="touch-button dpad-up" aria-label="Cima" @pointerdown="emit('set-button', 'Up', true, $event)"
-            @pointerup="emit('set-button', 'Up', false, $event)"
-            @pointercancel="emit('set-button', 'Up', false, $event)"
-            @pointerleave="emit('set-button', 'Up', false, $event)">
+          <button class="touch-button dpad-up" aria-label="Cima" @pointerdown="pressButton('Up', true, $event)"
+            @pointerup="pressButton('Up', false, $event)"
+            @pointercancel="pressButton('Up', false, $event)"
+            @pointerleave="pressButton('Up', false, $event)">
             ↑
           </button>
           <button class="touch-button dpad-left" aria-label="Esquerda"
-            @pointerdown="emit('set-button', 'Left', true, $event)"
-            @pointerup="emit('set-button', 'Left', false, $event)"
-            @pointercancel="emit('set-button', 'Left', false, $event)"
-            @pointerleave="emit('set-button', 'Left', false, $event)">
+            @pointerdown="pressButton('Left', true, $event)"
+            @pointerup="pressButton('Left', false, $event)"
+            @pointercancel="pressButton('Left', false, $event)"
+            @pointerleave="pressButton('Left', false, $event)">
             ←
           </button>
           <button class="touch-button dpad-down" aria-label="Baixo"
-            @pointerdown="emit('set-button', 'Down', true, $event)"
-            @pointerup="emit('set-button', 'Down', false, $event)"
-            @pointercancel="emit('set-button', 'Down', false, $event)"
-            @pointerleave="emit('set-button', 'Down', false, $event)">
+            @pointerdown="pressButton('Down', true, $event)"
+            @pointerup="pressButton('Down', false, $event)"
+            @pointercancel="pressButton('Down', false, $event)"
+            @pointerleave="pressButton('Down', false, $event)">
             ↓
           </button>
           <button class="touch-button dpad-right" aria-label="Direita"
-            @pointerdown="emit('set-button', 'Right', true, $event)"
-            @pointerup="emit('set-button', 'Right', false, $event)"
-            @pointercancel="emit('set-button', 'Right', false, $event)"
-            @pointerleave="emit('set-button', 'Right', false, $event)">
+            @pointerdown="pressButton('Right', true, $event)"
+            @pointerup="pressButton('Right', false, $event)"
+            @pointercancel="pressButton('Right', false, $event)"
+            @pointerleave="pressButton('Right', false, $event)">
             →
           </button>
         </div>
         <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba, 'gbc-action-pad': isGameBoy }">
-          <button v-if="!isGba && !isGameBoy" class="touch-button" aria-label="Y" @pointerdown="emit('set-button', 'Y', true, $event)"
-            @pointerup="emit('set-button', 'Y', false, $event)" @pointercancel="emit('set-button', 'Y', false, $event)"
-            @pointerleave="emit('set-button', 'Y', false, $event)">
+          <button v-if="!isGba && !isGameBoy" class="touch-button" aria-label="Y" @pointerdown="pressButton('Y', true, $event)"
+            @pointerup="pressButton('Y', false, $event)" @pointercancel="pressButton('Y', false, $event)"
+            @pointerleave="pressButton('Y', false, $event)">
             Y
           </button>
-          <button v-if="!isGba && !isGameBoy" class="touch-button" aria-label="X" @pointerdown="emit('set-button', 'X', true, $event)"
-            @pointerup="emit('set-button', 'X', false, $event)" @pointercancel="emit('set-button', 'X', false, $event)"
-            @pointerleave="emit('set-button', 'X', false, $event)">
+          <button v-if="!isGba && !isGameBoy" class="touch-button" aria-label="X" @pointerdown="pressButton('X', true, $event)"
+            @pointerup="pressButton('X', false, $event)" @pointercancel="pressButton('X', false, $event)"
+            @pointerleave="pressButton('X', false, $event)">
             X
           </button>
-          <button v-if="isGba" class="touch-button touch-shoulder" aria-label="L" @pointerdown="emit('set-button', 'L', true, $event)"
-            @pointerup="emit('set-button', 'L', false, $event)" @pointercancel="emit('set-button', 'L', false, $event)"
-            @pointerleave="emit('set-button', 'L', false, $event)">
+          <button v-if="isGba" class="touch-button touch-shoulder" aria-label="L" @pointerdown="pressButton('L', true, $event)"
+            @pointerup="pressButton('L', false, $event)" @pointercancel="pressButton('L', false, $event)"
+            @pointerleave="pressButton('L', false, $event)">
             L
           </button>
-          <button v-if="isGba" class="touch-button touch-shoulder" aria-label="R" @pointerdown="emit('set-button', 'R', true, $event)"
-            @pointerup="emit('set-button', 'R', false, $event)" @pointercancel="emit('set-button', 'R', false, $event)"
-            @pointerleave="emit('set-button', 'R', false, $event)">
+          <button v-if="isGba" class="touch-button touch-shoulder" aria-label="R" @pointerdown="pressButton('R', true, $event)"
+            @pointerup="pressButton('R', false, $event)" @pointercancel="pressButton('R', false, $event)"
+            @pointerleave="pressButton('R', false, $event)">
             R
           </button>
-          <button class="touch-button" aria-label="B" @pointerdown="emit('set-button', 'B', true, $event)"
-            @pointerup="emit('set-button', 'B', false, $event)" @pointercancel="emit('set-button', 'B', false, $event)"
-            @pointerleave="emit('set-button', 'B', false, $event)">
+          <button class="touch-button" aria-label="B" @pointerdown="pressButton('B', true, $event)"
+            @pointerup="pressButton('B', false, $event)" @pointercancel="pressButton('B', false, $event)"
+            @pointerleave="pressButton('B', false, $event)">
             B
           </button>
-          <button class="touch-button" aria-label="A" @pointerdown="emit('set-button', 'A', true, $event)"
-            @pointerup="emit('set-button', 'A', false, $event)" @pointercancel="emit('set-button', 'A', false, $event)"
-            @pointerleave="emit('set-button', 'A', false, $event)">
+          <button class="touch-button" aria-label="A" @pointerdown="pressButton('A', true, $event)"
+            @pointerup="pressButton('A', false, $event)" @pointercancel="pressButton('A', false, $event)"
+            @pointerleave="pressButton('A', false, $event)">
             A
           </button>
         </div>
         <div class="touch-system-pad">
-          <button class="touch-button" aria-label="Select" @pointerdown="emit('set-button', 'Select', true, $event)"
-            @pointerup="emit('set-button', 'Select', false, $event)"
-            @pointercancel="emit('set-button', 'Select', false, $event)"
-            @pointerleave="emit('set-button', 'Select', false, $event)">
+          <button class="touch-button" aria-label="Select" @pointerdown="pressButton('Select', true, $event)"
+            @pointerup="pressButton('Select', false, $event)"
+            @pointercancel="pressButton('Select', false, $event)"
+            @pointerleave="pressButton('Select', false, $event)">
             Select
           </button>
-          <button class="touch-button" aria-label="Start" @pointerdown="emit('set-button', 'Start', true, $event)"
-            @pointerup="emit('set-button', 'Start', false, $event)"
-            @pointercancel="emit('set-button', 'Start', false, $event)"
-            @pointerleave="emit('set-button', 'Start', false, $event)">
+          <button class="touch-button" aria-label="Start" @pointerdown="pressButton('Start', true, $event)"
+            @pointerup="pressButton('Start', false, $event)"
+            @pointercancel="pressButton('Start', false, $event)"
+            @pointerleave="pressButton('Start', false, $event)">
             Start
           </button>
         </div>

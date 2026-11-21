@@ -136,15 +136,29 @@ export function useEmulator({
     if (!context) {
       throw new Error("Não foi possível preparar a tela do jogo.");
     }
-    // O desktop informa a dimensão real publicada pelo callback do Mesen (o
-    // PCE, por exemplo, usa 256x242 no Mesen e 282x242 no core WASM).
+
+    // No desktop o Mesen serve cada frame como imagem BMP via protocolo
+    // customizado. O drawImage é feito pelo compositor do navegador, sem
+    // trazer os pixels para o JavaScript.
+    if (frame && typeof frame !== "string" && "naturalWidth" in frame) {
+      const width = frameInfo.width || frame.naturalWidth;
+      const height = frameInfo.height || frame.naturalHeight;
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      context.drawImage(frame, 0, 0);
+      return;
+    }
+
+    // Cores WASM: o frame é RGBA8888 cru e as dimensões vêm do formato.
     const width = frameInfo.width || frameWidth.value;
     const expectedHeight = frameInfo.height || frameHeight.value;
     const expectedLen = width * expectedHeight * 4;
     const height =
-      frame.length === expectedLen
+      frame?.length === expectedLen
         ? expectedHeight
-        : Math.max(1, Math.floor(frame.length / (width * 4)));
+        : Math.max(1, Math.floor((frame?.length ?? 0) / (width * 4)));
     if (
       !frameImageData ||
       frameImageData.width !== width ||
@@ -156,7 +170,9 @@ export function useEmulator({
       canvas.height = height;
       frameImageData = new ImageData(width, height);
     }
-    frameImageData.data.set(frame.subarray(0, frameImageData.data.length));
+    frameImageData.data.set(
+      frame?.subarray(0, frameImageData.data.length) ?? [],
+    );
     context.putImageData(frameImageData, 0, 0);
   }
 
@@ -356,7 +372,9 @@ export function useEmulator({
           !activeGame.value
         )
           return;
-        if (frame.frame.length) drawFrame(frame.frame, frame);
+        if (frame.frame instanceof Image || frame.frame?.length) {
+          drawFrame(frame.frame, frame);
+        }
         try {
           onAudioQueueFrame?.(frame);
         } catch (error) {
@@ -397,6 +415,12 @@ export function useEmulator({
   }
 
   function setButton(button, pressed, player = 1, event = null) {
+    // Compatibilidade com chamadores antigos que passavam o PointerEvent como
+    // terceiro argumento (o Player.vue fazia isso antes do helper pressButton).
+    if (player && typeof player === "object") {
+      event = player;
+      player = 1;
+    }
     event?.preventDefault?.();
     if (!snesCore) return;
     const core = snesCore;

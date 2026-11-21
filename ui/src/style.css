@@ -967,6 +967,10 @@ p {
   aspect-ratio: 10 / 9;
 }
 
+.game-canvas.ws-canvas {
+  aspect-ratio: 14 / 9;
+}
+
 .game-canvas:focus {
   outline: none;
 }
@@ -996,6 +1000,10 @@ p {
 
 .game-stage:fullscreen .game-canvas.gbc-canvas {
   width: min(100vw, calc(100dvh * 10 / 9));
+}
+
+.game-stage:fullscreen .game-canvas.ws-canvas {
+  width: min(100vw, calc(100dvh * 14 / 9));
 }
 
 .game-stage:fullscreen .touch-controls {

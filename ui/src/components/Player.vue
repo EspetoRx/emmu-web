@@ -70,9 +70,13 @@ const isGameBoy = computed(() =>
 );
 const isPce = computed(() => props.activeGame.format === "PCE");
 const isGameGear = computed(() => props.activeGame.format === "GG");
+const isWonderSwan = computed(() => props.activeGame.format === "WS");
 // Game Gear e Game Boy compartilham a resolução LCD (160x144) e o mesmo estilo
 // de canvas, mas GG tem apenas 2 botões + Start (sem Select nem P2).
 const isHandheld = computed(() => isGameBoy.value || isGameGear.value);
+// WonderSwan também é portátil e não tem P2, mas usa 224x144 e um segundo
+// direcional de 4 vias; por isso não entra em `isHandheld`.
+const isSinglePlayer = computed(() => isHandheld.value || isWonderSwan.value);
 
 // Os controles de toque são sempre do jogador 1. O quarto argumento carrega o
 // PointerEvent para `preventDefault()` (evita scroll/zoom e foco preso no
@@ -147,7 +151,7 @@ onBeforeUnmount(() => {
           <span>P1</span>
         </button>
 
-        <button v-if="!isGba && !isHandheld" type="button" class="secondary-button pad-button" :class="{ 'pad-connected': p2Enabled }"
+        <button v-if="!isGba && !isSinglePlayer" type="button" class="secondary-button pad-button" :class="{ 'pad-connected': p2Enabled }"
           :aria-pressed="p2Enabled" :aria-label="p2Enabled
               ? 'Configurar manete do Jogador 2'
               : 'Inserir e configurar manete do Jogador 2'
@@ -206,14 +210,14 @@ onBeforeUnmount(() => {
 
     <div ref="gameStageRef" class="game-stage">
       <canvas ref="canvasRef" class="game-canvas"
-        :class="{ 'nes-canvas': activeGame.format === 'NES', 'gba-canvas': isGba, 'gbc-canvas': isHandheld, 'pce-canvas': isPce }" :width="frameWidth"
+        :class="{ 'nes-canvas': activeGame.format === 'NES', 'gba-canvas': isGba, 'gbc-canvas': isHandheld, 'ws-canvas': isWonderSwan, 'pce-canvas': isPce }" :width="frameWidth"
         :height="frameHeight" aria-label="Tela do jogo" tabindex="0" @contextmenu.prevent></canvas>
       <button v-if="isFullscreen" class="fullscreen-exit-button" aria-label="Sair da tela cheia"
         @click="toggleFullscreen">
         Sair da tela cheia
       </button>
       <div v-if="isMobileDevice" class="touch-controls"
-        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isGba ? 'GBA' : isGameGear ? 'Game Gear' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
+        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isGba ? 'GBA' : isGameGear ? 'Game Gear' : isWonderSwan ? 'WonderSwan' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
         <div class="touch-dpad">
           <button class="touch-button dpad-up" aria-label="Cima" @pointerdown="pressButton('Up', true, $event)"
             @pointerup="pressButton('Up', false, $event)"
@@ -243,13 +247,39 @@ onBeforeUnmount(() => {
             →
           </button>
         </div>
+        <div v-if="isWonderSwan" class="touch-dpad ws-second-pad" aria-label="Segundo direcional do WonderSwan">
+          <button class="touch-button dpad-up" aria-label="Segundo direcional: cima" @pointerdown="pressButton('U', true, $event)"
+            @pointerup="pressButton('U', false, $event)"
+            @pointercancel="pressButton('U', false, $event)"
+            @pointerleave="pressButton('U', false, $event)">
+            Y↑
+          </button>
+          <button class="touch-button dpad-left" aria-label="Segundo direcional: esquerda" @pointerdown="pressButton('L', true, $event)"
+            @pointerup="pressButton('L', false, $event)"
+            @pointercancel="pressButton('L', false, $event)"
+            @pointerleave="pressButton('L', false, $event)">
+            Y←
+          </button>
+          <button class="touch-button dpad-down" aria-label="Segundo direcional: baixo" @pointerdown="pressButton('D', true, $event)"
+            @pointerup="pressButton('D', false, $event)"
+            @pointercancel="pressButton('D', false, $event)"
+            @pointerleave="pressButton('D', false, $event)">
+            Y↓
+          </button>
+          <button class="touch-button dpad-right" aria-label="Segundo direcional: direita" @pointerdown="pressButton('R', true, $event)"
+            @pointerup="pressButton('R', false, $event)"
+            @pointercancel="pressButton('R', false, $event)"
+            @pointerleave="pressButton('R', false, $event)">
+            Y→
+          </button>
+        </div>
         <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba, 'gbc-action-pad': isHandheld }">
-          <button v-if="!isGba && !isHandheld && !isPce" class="touch-button" aria-label="Y" @pointerdown="pressButton('Y', true, $event)"
+          <button v-if="!isGba && !isHandheld && !isPce && !isWonderSwan" class="touch-button" aria-label="Y" @pointerdown="pressButton('Y', true, $event)"
             @pointerup="pressButton('Y', false, $event)" @pointercancel="pressButton('Y', false, $event)"
             @pointerleave="pressButton('Y', false, $event)">
             Y
           </button>
-          <button v-if="!isGba && !isHandheld && !isPce" class="touch-button" aria-label="X" @pointerdown="pressButton('X', true, $event)"
+          <button v-if="!isGba && !isHandheld && !isPce && !isWonderSwan" class="touch-button" aria-label="X" @pointerdown="pressButton('X', true, $event)"
             @pointerup="pressButton('X', false, $event)" @pointercancel="pressButton('X', false, $event)"
             @pointerleave="pressButton('X', false, $event)">
             X
@@ -276,7 +306,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div class="touch-system-pad">
-          <button v-if="!isGameGear" class="touch-button" aria-label="Select" @pointerdown="pressButton('Select', true, $event)"
+          <button v-if="!isGameGear && !isWonderSwan" class="touch-button" aria-label="Select" @pointerdown="pressButton('Select', true, $event)"
             @pointerup="pressButton('Select', false, $event)"
             @pointercancel="pressButton('Select', false, $event)"
             @pointerleave="pressButton('Select', false, $event)">
@@ -308,5 +338,37 @@ onBeforeUnmount(() => {
 .pad-connected {
   border-color: #4ade80;
   color: #4ade80;
+}
+
+/* Segundo direcional do WonderSwan, compacto para caber ao lado do principal. */
+.ws-second-pad {
+  grid-template: repeat(2, 30px) / repeat(3, 30px);
+  gap: 2px;
+  align-self: flex-end;
+}
+
+.ws-second-pad .touch-button {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0 4px;
+  border-color: rgba(74, 222, 128, 0.4);
+  background: rgba(30, 60, 48, 0.82);
+  font-size: 9px;
+}
+
+.ws-second-pad .dpad-up {
+  grid-area: 1 / 2;
+}
+
+.ws-second-pad .dpad-left {
+  grid-area: 2 / 1;
+}
+
+.ws-second-pad .dpad-down {
+  grid-area: 2 / 2;
+}
+
+.ws-second-pad .dpad-right {
+  grid-area: 2 / 3;
 }
 </style>

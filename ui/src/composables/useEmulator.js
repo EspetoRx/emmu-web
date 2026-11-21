@@ -12,6 +12,8 @@ const GBA_FRAME_HEIGHT = 160;
 const GBC_FRAME_HEIGHT = 144;
 const PCE_FRAME_WIDTH = 282;
 const PCE_FRAME_HEIGHT = 242;
+const WS_FRAME_WIDTH = 224;
+const WS_FRAME_HEIGHT = 144;
 const FRAME_INTERVAL = 1000 / 60;
 const CHECKPOINT_INTERVAL = 5000;
 
@@ -44,6 +46,25 @@ function isGameBoyFormat(format) {
 // controle próprios (dois botões + Start, sem Select).
 function isGameGearFormat(format) {
   return format === "GG";
+}
+
+// WonderSwan usa tela Landscape 224x144 e dois direcionais de 4 vias.
+function isWonderSwanFormat(format) {
+  return format === "WS";
+}
+
+// O player expõe X/Y/L/R como botões de face/shoulder. No WonderSwan eles
+// controlam o segundo direcional (Y-pad); os nomes U/D/L/R são os mesmos usados
+// pela ABI do Mesen, então web e desktop recebem o mesmo evento.
+const WS_SECOND_PAD_BUTTONS = {
+  X: "U",
+  Y: "D",
+  L: "L",
+  R: "R",
+};
+
+function coreButtonForFormat(format, button) {
+  return isWonderSwanFormat(format) ? (WS_SECOND_PAD_BUTTONS[button] ?? button) : button;
 }
 
 function formatClockTime(date = new Date()) {
@@ -111,6 +132,7 @@ export function useEmulator({
     if (format === "NES") return NES_FRAME_WIDTH;
     if (format === "GBA") return GBA_FRAME_WIDTH;
     if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_WIDTH;
+    if (isWonderSwanFormat(format)) return WS_FRAME_WIDTH;
     if (format === "PCE") return PCE_FRAME_WIDTH;
     return SNES_FRAME_WIDTH;
   });
@@ -119,6 +141,7 @@ export function useEmulator({
     if (format === "NES") return NES_FRAME_HEIGHT;
     if (format === "GBA") return GBA_FRAME_HEIGHT;
     if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_HEIGHT;
+    if (isWonderSwanFormat(format)) return WS_FRAME_HEIGHT;
     if (format === "PCE") return PCE_FRAME_HEIGHT;
     return SNES_FRAME_HEIGHT;
   });
@@ -445,10 +468,11 @@ export function useEmulator({
     const key = `${slot}:${button}`;
     if (pressed) pressedButtons.add(key);
     else pressedButtons.delete(key);
+    const coreButton = coreButtonForFormat(activeGame.value?.format, button);
     const call =
       typeof core.setButton === "function"
-        ? core.setButton(button, pressed, slot)
-        : core.setButton(button, pressed);
+        ? core.setButton(coreButton, pressed, slot)
+        : core.setButton(coreButton, pressed);
     void Promise.resolve(call).catch((error) => {
       onSetPlayerError?.(
         `Não foi possível atualizar o controle: ${errorText(error)}`,

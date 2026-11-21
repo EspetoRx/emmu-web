@@ -16,6 +16,11 @@ function errorText(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+// `.wsc` (WonderSwan Color) usa o mesmo core e o mesmo formato lógico `.ws`.
+function formatForExtension(extension) {
+  return extension === "wsc" ? "WS" : extension.toUpperCase();
+}
+
 const SUPPORTED_ROM_EXTENSIONS = [
   "nes",
   "sfc",
@@ -25,17 +30,19 @@ const SUPPORTED_ROM_EXTENSIONS = [
   "gb",
   "gbc",
   "gg",
+  "ws",
+  "wsc",
   "pce",
 ];
 const SUPPORTED_ROM_LABEL =
-  ".nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg e .pce";
-// Nenhum cartucho Game Gear passa de 512 KB; o limite evita ZIP bombs.
+  ".nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .ws, .wsc e .pce";
+// O limite evita ZIP bombs (nenhum cartucho portátil desta geração chega perto).
 const MAX_EXTRACTED_ROM_BYTES = 8 * 1024 * 1024;
 
 /**
  * Aceita ROMs soltas e arquivos .zip (o formato mais comum de distribuição de
- * ROMs). Cada entry `.gg` dentro do ZIP vira um File independente, para que
- * o restante do fluxo de importação continue exatamente o mesmo.
+ * ROMs). Cada entry de ROM portátil (`.gg`, `.ws`, `.wsc`) dentro do ZIP vira
+ * um File independente, para que o restante do fluxo continue o mesmo.
  */
 async function expandRomFile(file) {
   if (!file.name.toLowerCase().endsWith(".zip")) return [file];
@@ -48,18 +55,20 @@ async function expandRomFile(file) {
   }
 
   const roms = Object.entries(entries)
-    .filter(([path, bytes]) => /\.gg$/i.test(path) && bytes.length > 0)
+    .filter(([path, bytes]) => /\.(gg|ws|wsc)$/i.test(path) && bytes.length > 0)
     .sort(([a], [b]) => a.localeCompare(b, "pt-BR", { numeric: true }));
 
   if (!roms.length) {
-    throw new Error("nenhum arquivo .gg foi encontrado dentro do ZIP");
+    throw new Error(
+      "nenhum arquivo .gg, .ws ou .wsc foi encontrado dentro do ZIP",
+    );
   }
 
   return roms.map(([path, bytes]) => {
     if (bytes.length > MAX_EXTRACTED_ROM_BYTES) {
       throw new Error(`ROM ${path} é grande demais para importar`);
     }
-    const name = path.split(/[\\/]/).pop() || "rom.gg";
+    const name = path.split(/[\\/]/).pop() || "rom.bin";
     return new File([bytes], name, { type: "application/octet-stream" });
   });
 }
@@ -120,7 +129,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                   ? game.format === "GBC"
                   : libraryFormat.value === "gg"
                     ? game.format === "GG"
-                    : libraryFormat.value === "pce"
+                    : libraryFormat.value === "ws"
+                      ? game.format === "WS"
+                      : libraryFormat.value === "pce"
                       ? game.format === "PCE"
                       : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
         return matchesSearch && matchesFormat;
@@ -199,7 +210,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                     ? "PCE"
                     : game.format === "GG"
                       ? "GG"
-                      : "SNES";
+                      : game.format === "WS"
+                        ? "WS"
+                        : "SNES";
           label = key;
           break;
         case "format":
@@ -234,7 +247,11 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (typeof saved.search === "string") librarySearch.value = saved.search;
-      if (["all", "nes", "snes", "gba", "gb", "gbc", "gg", "pce"].includes(saved.format))
+      if (
+        ["all", "nes", "snes", "gba", "gb", "gbc", "gg", "ws", "pce"].includes(
+          saved.format,
+        )
+      )
         libraryFormat.value = saved.format;
       if (
         [
@@ -353,7 +370,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       const updatedGame = {
         ...existingGame,
         fileName: file.name,
-        format: extension.toUpperCase(),
+        format: formatForExtension(extension),
         size: file.size,
         rom,
         romUnavailable: false,
@@ -376,7 +393,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       name,
       fileName: file.name,
       size: file.size,
-      format: extension.toUpperCase(),
+      format: formatForExtension(extension),
       rom,
       preview: null,
       previewUrl: null,
@@ -395,7 +412,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
     const failures = [];
 
     // Expande ZIPs antes de calcular o progresso: um arquivo pode conter
-    // várias ROMs Game Gear.
+    // várias ROMs portáteis (Game Gear / WonderSwan).
     const expanded = [];
     for (const file of files) {
       try {

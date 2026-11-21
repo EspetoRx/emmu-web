@@ -42,13 +42,29 @@ const emit = defineEmits([
   "save",
 ]);
 
+const systemLabel = computed(() => props.system.toUpperCase());
+const isSinglePlayerSystem = computed(() =>
+  ["GG", "WS"].includes(systemLabel.value),
+);
 const activeBindings = computed(() =>
-  props.activePlayer === 2 && props.system.toUpperCase() !== "GG"
+  props.activePlayer === 2 && !isSinglePlayerSystem.value
     ? props.draft.p2
     : props.draft.p1,
 );
-const systemLabel = computed(() => props.system.toUpperCase());
 const visibleActions = computed(() => {
+  if (systemLabel.value === "WS") {
+    // O WonderSwan tem dois direcionais de 4 vias, A/B e Start. O hardware não
+    // tem Select; X/Y/L/R são apenas os nomes dos bindings do segundo pad.
+    return CONTROL_ACTIONS.filter(({ id }) => id !== "Select").map((action) => {
+      const secondPad = {
+        X: "Segundo pad ↑",
+        Y: "Segundo pad ↓",
+        L: "Segundo pad ←",
+        R: "Segundo pad →",
+      }[action.id];
+      return secondPad ? { ...action, label: secondPad } : action;
+    });
+  }
   if (systemLabel.value === "GG") {
     // O Game Gear tem apenas D-pad, dois botões (1/2) e Start. As ações A/B
     // continuam existindo nos bindings; apenas os rótulos mudam para 1/2.
@@ -90,7 +106,7 @@ const visibleActions = computed(() => {
           @click="emit('select-player', 1)">
           P1 · Jogador 1
         </button>
-        <template v-if="systemLabel !== 'GG'">
+        <template v-if="!isSinglePlayerSystem">
           <button type="button" role="tab" class="secondary-button" :aria-selected="activePlayer === 2"
             @click="emit('select-player', 2)">
             P2 · Jogador 2 {{ draft.p2Enabled ? "(Conectada)" : "(Inserir)" }}

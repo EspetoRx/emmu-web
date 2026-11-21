@@ -37,7 +37,8 @@ const emit = defineEmits(["close"]);
       </p>
       <p>Controles: setas, Z/X/A/S, Q/W, Enter e Shift. No celular, use os botões na tela.</p>
       <p>No Game Gear, Z/X viram os botões 1/2 e Enter é Start; Select, X/Y e L/R não são usados.</p>
-      <p class="supported-formats">Formatos aceitos pela interface: .nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .pce e arquivos .zip contendo uma ou mais ROMs.</p>
+      <p>No WonderSwan, as setas controlam o primeiro direcional e S/A/Q/W o segundo (↑/↓/←/→); Z/X são A/B e Enter é Start. Não há Select nem jogador 2.</p>
+      <p class="supported-formats">Formatos aceitos pela interface: .nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .ws, .wsc, .pce e arquivos .zip contendo uma ou mais ROMs.</p>
       <button class="secondary-button" @click="emit('close')">Fechar</button>
     </section>
   </div>

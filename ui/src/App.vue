@@ -385,7 +385,7 @@ onBeforeUnmount(() => {
       @close-menu="openMenu = null" @open-file-picker="openFilePicker" @return-to-library="returnToLibrary"
       @request-clear-library="requestClearLibrary" @open-controls="openControls(1)" />
 
-    <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig,.gba,.gb,.gbc,.gg,.pce,.zip"
+    <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig,.gba,.gb,.gbc,.gg,.ws,.wsc,.pce,.zip"
       aria-label="Abrir arquivos de jogos" tabindex="-1" @change="addRom" />
 
     <Library v-if="!activeGame" v-model:search="librarySearch" v-model:format="libraryFormat" v-model:sort="librarySort"

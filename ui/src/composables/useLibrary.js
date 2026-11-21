@@ -30,19 +30,20 @@ const SUPPORTED_ROM_EXTENSIONS = [
   "gb",
   "gbc",
   "gg",
+  "sms",
   "ws",
   "wsc",
   "pce",
 ];
 const SUPPORTED_ROM_LABEL =
-  ".nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .ws, .wsc e .pce";
+  ".nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .sms, .ws, .wsc e .pce";
 // O limite evita ZIP bombs (nenhum cartucho portátil desta geração chega perto).
 const MAX_EXTRACTED_ROM_BYTES = 8 * 1024 * 1024;
 
 /**
  * Aceita ROMs soltas e arquivos .zip (o formato mais comum de distribuição de
- * ROMs). Cada entry de ROM portátil (`.gg`, `.ws`, `.wsc`) dentro do ZIP vira
- * um File independente, para que o restante do fluxo continue o mesmo.
+ * ROMs). Cada entry de ROM portátil (`.gg`, `.sms`, `.ws`, `.wsc`) dentro do
+ * ZIP vira um File independente, para que o restante do fluxo continue o mesmo.
  */
 async function expandRomFile(file) {
   if (!file.name.toLowerCase().endsWith(".zip")) return [file];
@@ -55,12 +56,14 @@ async function expandRomFile(file) {
   }
 
   const roms = Object.entries(entries)
-    .filter(([path, bytes]) => /\.(gg|ws|wsc)$/i.test(path) && bytes.length > 0)
+    .filter(([path, bytes]) =>
+      /\.(gg|sms|ws|wsc)$/i.test(path) && bytes.length > 0,
+    )
     .sort(([a], [b]) => a.localeCompare(b, "pt-BR", { numeric: true }));
 
   if (!roms.length) {
     throw new Error(
-      "nenhum arquivo .gg, .ws ou .wsc foi encontrado dentro do ZIP",
+      "nenhum arquivo .gg, .sms, .ws ou .wsc foi encontrado dentro do ZIP",
     );
   }
 
@@ -129,7 +132,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                   ? game.format === "GBC"
                   : libraryFormat.value === "gg"
                     ? game.format === "GG"
-                    : libraryFormat.value === "ws"
+                    : libraryFormat.value === "sms"
+                      ? game.format === "SMS"
+                      : libraryFormat.value === "ws"
                       ? game.format === "WS"
                       : libraryFormat.value === "pce"
                       ? game.format === "PCE"
@@ -210,9 +215,11 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                     ? "PCE"
                     : game.format === "GG"
                       ? "GG"
-                      : game.format === "WS"
-                        ? "WS"
-                        : "SNES";
+                      : game.format === "SMS"
+                        ? "SMS"
+                        : game.format === "WS"
+                          ? "WS"
+                          : "SNES";
           label = key;
           break;
         case "format":

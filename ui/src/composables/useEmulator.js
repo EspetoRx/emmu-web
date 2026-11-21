@@ -12,6 +12,8 @@ const GBA_FRAME_HEIGHT = 160;
 const GBC_FRAME_HEIGHT = 144;
 const PCE_FRAME_WIDTH = 282;
 const PCE_FRAME_HEIGHT = 242;
+const SMS_FRAME_WIDTH = 256;
+const SMS_FRAME_HEIGHT = 224;
 const WS_FRAME_WIDTH = 224;
 const WS_FRAME_HEIGHT = 144;
 const FRAME_INTERVAL = 1000 / 60;
@@ -131,6 +133,7 @@ export function useEmulator({
     const format = activeGame.value?.format;
     if (format === "NES") return NES_FRAME_WIDTH;
     if (format === "GBA") return GBA_FRAME_WIDTH;
+    if (format === "SMS") return SMS_FRAME_WIDTH;
     if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_WIDTH;
     if (isWonderSwanFormat(format)) return WS_FRAME_WIDTH;
     if (format === "PCE") return PCE_FRAME_WIDTH;
@@ -140,6 +143,7 @@ export function useEmulator({
     const format = activeGame.value?.format;
     if (format === "NES") return NES_FRAME_HEIGHT;
     if (format === "GBA") return GBA_FRAME_HEIGHT;
+    if (format === "SMS") return SMS_FRAME_HEIGHT;
     if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_HEIGHT;
     if (isWonderSwanFormat(format)) return WS_FRAME_HEIGHT;
     if (format === "PCE") return PCE_FRAME_HEIGHT;

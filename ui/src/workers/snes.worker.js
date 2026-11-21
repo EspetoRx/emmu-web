@@ -4,6 +4,7 @@ import initializeGbaWasm, { GbaEmulator } from "./../wasm/gba/emmu_gba.js";
 import initializeGbcWasm, { GbcEmulator } from "./../wasm/gbc/emmu_gbc.js";
 import initializeGbWasm, { GbEmulator } from "./../wasm/gb/emmu_gb.js";
 import initializeGgWasm, { GgEmulator } from "./../wasm/gg/emmu_gg.js";
+import initializeSmsWasm, { SmsEmulator } from "./../wasm/sms/emmu_sms.js";
 import initializeWsWasm, { WsEmulator } from "./../wasm/ws/emmu_ws.js";
 import initializePceWasm, { PceEmulator } from "./../wasm/pce/emmu_pce.js";
 
@@ -39,6 +40,9 @@ self.addEventListener("message", async ({ data }) => {
         } else if (system === "GG") {
           await initializeGgWasm();
           emulator = new GgEmulator(rom);
+        } else if (system === "SMS") {
+          await initializeSmsWasm();
+          emulator = new SmsEmulator(rom);
         } else if (system === "WS") {
           await initializeWsWasm();
           emulator = new WsEmulator(rom);
@@ -67,6 +71,8 @@ self.addEventListener("message", async ({ data }) => {
           restartedEmulator = new GbEmulator(romData);
         } else if (gameSystem === "GG") {
           restartedEmulator = new GgEmulator(romData);
+        } else if (gameSystem === "SMS") {
+          restartedEmulator = new SmsEmulator(romData);
         } else if (gameSystem === "WS") {
           restartedEmulator = new WsEmulator(romData);
         } else if (gameSystem === "PCE") {

@@ -70,6 +70,7 @@ const isGameBoy = computed(() =>
 );
 const isPce = computed(() => props.activeGame.format === "PCE");
 const isGameGear = computed(() => props.activeGame.format === "GG");
+const isMasterSystem = computed(() => props.activeGame.format === "SMS");
 const isWonderSwan = computed(() => props.activeGame.format === "WS");
 // Game Gear e Game Boy compartilham a resolução LCD (160x144) e o mesmo estilo
 // de canvas, mas GG tem apenas 2 botões + Start (sem Select nem P2).
@@ -210,14 +211,14 @@ onBeforeUnmount(() => {
 
     <div ref="gameStageRef" class="game-stage">
       <canvas ref="canvasRef" class="game-canvas"
-        :class="{ 'nes-canvas': activeGame.format === 'NES', 'gba-canvas': isGba, 'gbc-canvas': isHandheld, 'ws-canvas': isWonderSwan, 'pce-canvas': isPce }" :width="frameWidth"
+        :class="{ 'nes-canvas': activeGame.format === 'NES' || isMasterSystem, 'gba-canvas': isGba, 'gbc-canvas': isHandheld, 'ws-canvas': isWonderSwan, 'pce-canvas': isPce }" :width="frameWidth"
         :height="frameHeight" aria-label="Tela do jogo" tabindex="0" @contextmenu.prevent></canvas>
       <button v-if="isFullscreen" class="fullscreen-exit-button" aria-label="Sair da tela cheia"
         @click="toggleFullscreen">
         Sair da tela cheia
       </button>
       <div v-if="isMobileDevice" class="touch-controls"
-        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isGba ? 'GBA' : isGameGear ? 'Game Gear' : isWonderSwan ? 'WonderSwan' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
+        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isGba ? 'GBA' : isGameGear ? 'Game Gear' : isMasterSystem ? 'Master System' : isWonderSwan ? 'WonderSwan' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
         <div class="touch-dpad">
           <button class="touch-button dpad-up" aria-label="Cima" @pointerdown="pressButton('Up', true, $event)"
             @pointerup="pressButton('Up', false, $event)"
@@ -274,12 +275,12 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba, 'gbc-action-pad': isHandheld }">
-          <button v-if="!isGba && !isHandheld && !isPce && !isWonderSwan" class="touch-button" aria-label="Y" @pointerdown="pressButton('Y', true, $event)"
+          <button v-if="!isGba && !isHandheld && !isPce && !isWonderSwan && !isMasterSystem" class="touch-button" aria-label="Y" @pointerdown="pressButton('Y', true, $event)"
             @pointerup="pressButton('Y', false, $event)" @pointercancel="pressButton('Y', false, $event)"
             @pointerleave="pressButton('Y', false, $event)">
             Y
           </button>
-          <button v-if="!isGba && !isHandheld && !isPce && !isWonderSwan" class="touch-button" aria-label="X" @pointerdown="pressButton('X', true, $event)"
+          <button v-if="!isGba && !isHandheld && !isPce && !isWonderSwan && !isMasterSystem" class="touch-button" aria-label="X" @pointerdown="pressButton('X', true, $event)"
             @pointerup="pressButton('X', false, $event)" @pointercancel="pressButton('X', false, $event)"
             @pointerleave="pressButton('X', false, $event)">
             X
@@ -294,19 +295,19 @@ onBeforeUnmount(() => {
             @pointerleave="pressButton('R', false, $event)">
             R
           </button>
-          <button class="touch-button" :aria-label="isGameGear ? 'Botão 2' : 'B'" @pointerdown="pressButton('B', true, $event)"
+          <button class="touch-button" :aria-label="isGameGear || isMasterSystem ? 'Botão 2' : 'B'" @pointerdown="pressButton('B', true, $event)"
             @pointerup="pressButton('B', false, $event)" @pointercancel="pressButton('B', false, $event)"
             @pointerleave="pressButton('B', false, $event)">
-            {{ isGameGear ? "2" : "B" }}
+            {{ isGameGear || isMasterSystem ? "2" : "B" }}
           </button>
-          <button class="touch-button" :aria-label="isGameGear ? 'Botão 1' : 'A'" @pointerdown="pressButton('A', true, $event)"
+          <button class="touch-button" :aria-label="isGameGear || isMasterSystem ? 'Botão 1' : 'A'" @pointerdown="pressButton('A', true, $event)"
             @pointerup="pressButton('A', false, $event)" @pointercancel="pressButton('A', false, $event)"
             @pointerleave="pressButton('A', false, $event)">
-            {{ isGameGear ? "1" : "A" }}
+            {{ isGameGear || isMasterSystem ? "1" : "A" }}
           </button>
         </div>
         <div class="touch-system-pad">
-          <button v-if="!isGameGear && !isWonderSwan" class="touch-button" aria-label="Select" @pointerdown="pressButton('Select', true, $event)"
+          <button v-if="!isGameGear && !isWonderSwan && !isMasterSystem" class="touch-button" aria-label="Select" @pointerdown="pressButton('Select', true, $event)"
             @pointerup="pressButton('Select', false, $event)"
             @pointercancel="pressButton('Select', false, $event)"
             @pointerleave="pressButton('Select', false, $event)">

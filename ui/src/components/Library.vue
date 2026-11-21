@@ -126,6 +126,7 @@ onMounted(() => {
             <option value="gba">GBA</option>
             <option value="gb">GB (DMG)</option>
             <option value="gbc">GBC</option>
+            <option value="pce">PC Engine</option>
           </select>
           <label for="library-sort">Organizar por</label>
           <select id="library-sort" v-model="sort">
@@ -192,7 +193,7 @@ onMounted(() => {
       <button class="secondary-button" @click="emit('open-file-picker')">
         Escolher arquivos
       </button>
-      <span class="supported-formats">Compatível com .nes, .sfc, .smc, .fig, .gba, .gb e .gbc</span>
+      <span class="supported-formats">Compatível com .nes, .sfc, .smc, .fig, .gba, .gb, .gbc e .pce</span>
     </div>
   </section>
 </template>

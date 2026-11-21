@@ -10,6 +10,8 @@ const SNES_FRAME_HEIGHT = 224;
 const NES_FRAME_HEIGHT = 240;
 const GBA_FRAME_HEIGHT = 160;
 const GBC_FRAME_HEIGHT = 144;
+const PCE_FRAME_WIDTH = 282;
+const PCE_FRAME_HEIGHT = 242;
 const FRAME_INTERVAL = 1000 / 60;
 const CHECKPOINT_INTERVAL = 5000;
 
@@ -103,6 +105,7 @@ export function useEmulator({
     if (format === "NES") return NES_FRAME_WIDTH;
     if (format === "GBA") return GBA_FRAME_WIDTH;
     if (isGameBoyFormat(format)) return GBC_FRAME_WIDTH;
+    if (format === "PCE") return PCE_FRAME_WIDTH;
     return SNES_FRAME_WIDTH;
   });
   const frameHeight = computed(() => {
@@ -110,6 +113,7 @@ export function useEmulator({
     if (format === "NES") return NES_FRAME_HEIGHT;
     if (format === "GBA") return GBA_FRAME_HEIGHT;
     if (isGameBoyFormat(format)) return GBC_FRAME_HEIGHT;
+    if (format === "PCE") return PCE_FRAME_HEIGHT;
     return SNES_FRAME_HEIGHT;
   });
 
@@ -126,27 +130,31 @@ export function useEmulator({
     nextEmulationFrameAt = 0;
   }
 
-  function drawFrame(frame) {
+  function drawFrame(frame, frameInfo = {}) {
     const canvas = canvasRef.value;
     const context = canvas?.getContext("2d", { alpha: false });
     if (!context) {
       throw new Error("Não foi possível preparar a tela do jogo.");
     }
-    const expectedLen = frameWidth.value * frameHeight.value * 4;
-    const inferredHeight =
+    // O desktop informa a dimensão real publicada pelo callback do Mesen (o
+    // PCE, por exemplo, usa 256x242 no Mesen e 282x242 no core WASM).
+    const width = frameInfo.width || frameWidth.value;
+    const expectedHeight = frameInfo.height || frameHeight.value;
+    const expectedLen = width * expectedHeight * 4;
+    const height =
       frame.length === expectedLen
-        ? frameHeight.value
-        : Math.max(1, Math.floor(frame.length / (frameWidth.value * 4)));
+        ? expectedHeight
+        : Math.max(1, Math.floor(frame.length / (width * 4)));
     if (
       !frameImageData ||
-      frameImageData.width !== frameWidth.value ||
-      frameImageData.height !== inferredHeight ||
-      canvas.width !== frameWidth.value ||
-      canvas.height !== inferredHeight
+      frameImageData.width !== width ||
+      frameImageData.height !== height ||
+      canvas.width !== width ||
+      canvas.height !== height
     ) {
-      canvas.width = frameWidth.value;
-      canvas.height = inferredHeight;
-      frameImageData = new ImageData(frameWidth.value, inferredHeight);
+      canvas.width = width;
+      canvas.height = height;
+      frameImageData = new ImageData(width, height);
     }
     frameImageData.data.set(frame.subarray(0, frameImageData.data.length));
     context.putImageData(frameImageData, 0, 0);
@@ -348,7 +356,7 @@ export function useEmulator({
           !activeGame.value
         )
           return;
-        if (frame.frame.length) drawFrame(frame.frame);
+        if (frame.frame.length) drawFrame(frame.frame, frame);
         try {
           onAudioQueueFrame?.(frame);
         } catch (error) {
@@ -476,7 +484,7 @@ export function useEmulator({
       ) {
         return;
       }
-      drawFrame(firstFrame.frame);
+      drawFrame(firstFrame.frame, firstFrame);
       try {
         onAudioQueueFrame?.(firstFrame);
       } catch (error) {
@@ -633,7 +641,7 @@ export function useEmulator({
         if (snesCore !== core) core.dispose();
         return;
       }
-      drawFrame(firstFrame.frame);
+      drawFrame(firstFrame.frame, firstFrame);
       try {
         onAudioQueueFrame?.(firstFrame);
       } catch (error) {

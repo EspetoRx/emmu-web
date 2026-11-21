@@ -8,7 +8,7 @@
     "dev": "vite",
     "prebuild": "npm run build:wasm",
     "build": "vite build",
-    "build:wasm": "cd ../../../crates/emmu-snes && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm --out-name emmu_snes && cd ../emmu-nes && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm/nes --out-name emmu_nes && cd ../emmu-gba && node tools/build-bridge.mjs && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm/gba --out-name emmu_gba && cd ../emmu-gbc && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm/gbc --out-name emmu_gbc && cd ../emmu-gb && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm/gb --out-name emmu_gb",
+    "build:wasm": "cd ../../../crates/emmu-snes && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm --out-name emmu_snes && cd ../emmu-nes && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm/nes --out-name emmu_nes && cd ../emmu-gba && node tools/build-bridge.mjs && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm/gba --out-name emmu_gba && cd ../emmu-gbc && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm/gbc --out-name emmu_gbc && cd ../emmu-gb && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm/gb --out-name emmu_gb && cd ../emmu-pce && wasm-pack build --target web --out-dir ../../platforms/web/ui/src/wasm/pce --out-name emmu_pce",
     "preview": "vite preview",
     "desktop:dev": "cd ../../desktop && cargo tauri dev",
     "desktop:build": "cd ../../desktop && cargo tauri build",

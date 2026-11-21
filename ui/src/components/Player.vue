@@ -68,6 +68,7 @@ const isGba = computed(() => props.activeGame.format === "GBA");
 const isGameBoy = computed(() =>
   ["GBC", "GB"].includes(props.activeGame.format),
 );
+const isPce = computed(() => props.activeGame.format === "PCE");
 
 function handleFullscreenChange() {
   isFullscreen.value = document.fullscreenElement === gameStageRef.value;
@@ -190,14 +191,14 @@ onBeforeUnmount(() => {
 
     <div ref="gameStageRef" class="game-stage">
       <canvas ref="canvasRef" class="game-canvas"
-        :class="{ 'nes-canvas': activeGame.format === 'NES', 'gba-canvas': isGba, 'gbc-canvas': isGameBoy }" :width="frameWidth"
+        :class="{ 'nes-canvas': activeGame.format === 'NES', 'gba-canvas': isGba, 'gbc-canvas': isGameBoy, 'pce-canvas': isPce }" :width="frameWidth"
         :height="frameHeight" aria-label="Tela do jogo" tabindex="0" @contextmenu.prevent></canvas>
       <button v-if="isFullscreen" class="fullscreen-exit-button" aria-label="Sair da tela cheia"
         @click="toggleFullscreen">
         Sair da tela cheia
       </button>
       <div v-if="isMobileDevice" class="touch-controls"
-        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isGba ? 'GBA' : isGameBoy ? activeGame.format : 'SNES'}`">
+        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isGba ? 'GBA' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
         <div class="touch-dpad">
           <button class="touch-button dpad-up" aria-label="Cima" @pointerdown="emit('set-button', 'Up', true, $event)"
             @pointerup="emit('set-button', 'Up', false, $event)"

@@ -3,6 +3,7 @@ import initializeNesWasm, { NesEmulator } from "./../wasm/nes/emmu_nes.js";
 import initializeGbaWasm, { GbaEmulator } from "./../wasm/gba/emmu_gba.js";
 import initializeGbcWasm, { GbcEmulator } from "./../wasm/gbc/emmu_gbc.js";
 import initializeGbWasm, { GbEmulator } from "./../wasm/gb/emmu_gb.js";
+import initializePceWasm, { PceEmulator } from "./../wasm/pce/emmu_pce.js";
 
 let emulator = null;
 let romData = null;
@@ -33,6 +34,9 @@ self.addEventListener("message", async ({ data }) => {
         } else if (system === "GB") {
           await initializeGbWasm();
           emulator = new GbEmulator(rom);
+        } else if (system === "PCE") {
+          await initializePceWasm();
+          emulator = new PceEmulator(rom);
         } else {
           throw new Error(`Sistema não suportado: ${system}`);
         }
@@ -53,6 +57,8 @@ self.addEventListener("message", async ({ data }) => {
           restartedEmulator = new GbcEmulator(romData);
         } else if (gameSystem === "GB") {
           restartedEmulator = new GbEmulator(romData);
+        } else if (gameSystem === "PCE") {
+          restartedEmulator = new PceEmulator(romData);
         } else {
           restartedEmulator = new SnesEmulator(romData);
         }

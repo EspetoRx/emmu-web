@@ -186,12 +186,14 @@ export async function createEmulator(romBytes, format) {
           ? "GBC"
           : format === "GB"
             ? "GB"
-            : "SNES";
+            : format === "PCE"
+              ? "PCE"
+              : "SNES";
 
   if (isTauriDesktop()) {
-    // No desktop, NES, SNES, GBA, GB e GBC rodam no Mesen (com SDL para áudio
-    // e save states). No navegador, NES/SNES usam WASM, GB e GBC têm cores
-    // próprios e o GBA usa o core Web-GBA.
+    // No desktop, NES, SNES, GBA, GB, GBC e PCE rodam no Mesen (com SDL para
+    // áudio e save states). No navegador, NES/SNES usam WASM, GB/GBC/PCE têm
+    // cores próprios e o GBA usa o core Web-GBA.
     const romCopy = new Uint8Array(romBytes);
     const screenSize = await tauriInvoke("mesen_init_rom", {
       romBytes: Array.from(romCopy),

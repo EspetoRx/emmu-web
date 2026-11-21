@@ -69,7 +69,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                 ? game.format === "GB"
                 : libraryFormat.value === "gbc"
                   ? game.format === "GBC"
-                  : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
+                  : libraryFormat.value === "pce"
+                    ? game.format === "PCE"
+                    : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
         return matchesSearch && matchesFormat;
       })
       .sort((first, second) => {
@@ -142,7 +144,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                 ? "GBA"
                 : game.format === "GB" || game.format === "GBC"
                   ? game.format
-                  : "SNES";
+                  : game.format === "PCE"
+                    ? "PCE"
+                    : "SNES";
           label = key;
           break;
         case "format":
@@ -177,7 +181,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (typeof saved.search === "string") librarySearch.value = saved.search;
-      if (["all", "nes", "snes", "gba", "gb", "gbc"].includes(saved.format))
+      if (["all", "nes", "snes", "gba", "gb", "gbc", "pce"].includes(saved.format))
         libraryFormat.value = saved.format;
       if (
         [
@@ -278,9 +282,11 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
 
   async function addRomFile(file) {
     const extension = file.name.split(".").pop()?.toLowerCase();
-    if (!["nes", "sfc", "smc", "fig", "gba", "gb", "gbc"].includes(extension)) {
+    if (
+      !["nes", "sfc", "smc", "fig", "gba", "gb", "gbc", "pce"].includes(extension)
+    ) {
       throw new Error(
-        "Formato não suportado. Selecione arquivos .nes, .sfc, .smc, .fig, .gba, .gb ou .gbc.",
+        "Formato não suportado. Selecione arquivos .nes, .sfc, .smc, .fig, .gba, .gb, .gbc ou .pce.",
       );
     }
 

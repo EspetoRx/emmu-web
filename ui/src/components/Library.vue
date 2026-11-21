@@ -124,7 +124,8 @@ onMounted(() => {
             <option value="nes">NES</option>
             <option value="snes">SNES (SFC/SMC)</option>
             <option value="gba">GBA</option>
-            <option value="gbc">GBC (GB/GBC)</option>
+            <option value="gb">GB (DMG)</option>
+            <option value="gbc">GBC</option>
           </select>
           <label for="library-sort">Organizar por</label>
           <select id="library-sort" v-model="sort">

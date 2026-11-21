@@ -7,7 +7,6 @@ import {
 } from "../stores/libraryStore.js";
 
 const LIBRARY_FILTERS_STORAGE_KEY = "emmu.library.filters";
-const GAMEBOY_FORMATS = new Set(["GBC", "GB"]);
 // Mesmo quando a leitura do IndexedDB é instantânea, mantém o progresso visível
 // por tempo suficiente para o usuário perceber que a biblioteca foi carregada.
 const MIN_LIBRARY_LOADING_MS = 450;
@@ -66,9 +65,11 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
             ? game.format === "NES"
             : libraryFormat.value === "gba"
               ? game.format === "GBA"
-              : libraryFormat.value === "gbc"
-                ? GAMEBOY_FORMATS.has(game.format)
-                : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
+              : libraryFormat.value === "gb"
+                ? game.format === "GB"
+                : libraryFormat.value === "gbc"
+                  ? game.format === "GBC"
+                  : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
         return matchesSearch && matchesFormat;
       })
       .sort((first, second) => {
@@ -139,8 +140,8 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
               ? "NES"
               : game.format === "GBA"
                 ? "GBA"
-                : GAMEBOY_FORMATS.has(game.format)
-                  ? "GBC"
+                : game.format === "GB" || game.format === "GBC"
+                  ? game.format
                   : "SNES";
           label = key;
           break;
@@ -176,7 +177,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (typeof saved.search === "string") librarySearch.value = saved.search;
-      if (["all", "nes", "snes", "gba", "gbc"].includes(saved.format))
+      if (["all", "nes", "snes", "gba", "gb", "gbc"].includes(saved.format))
         libraryFormat.value = saved.format;
       if (
         [

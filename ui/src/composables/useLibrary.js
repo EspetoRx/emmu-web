@@ -1,4 +1,5 @@
 import { computed, ref, watch } from "vue";
+import { unzipSync } from "fflate";
 import {
   clearLibraryGames,
   deleteLibraryGame,
@@ -13,6 +14,54 @@ const MIN_LIBRARY_LOADING_MS = 450;
 
 function errorText(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+const SUPPORTED_ROM_EXTENSIONS = [
+  "nes",
+  "sfc",
+  "smc",
+  "fig",
+  "gba",
+  "gb",
+  "gbc",
+  "gg",
+  "pce",
+];
+const SUPPORTED_ROM_LABEL =
+  ".nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg e .pce";
+// Nenhum cartucho Game Gear passa de 512 KB; o limite evita ZIP bombs.
+const MAX_EXTRACTED_ROM_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Aceita ROMs soltas e arquivos .zip (o formato mais comum de distribuição de
+ * ROMs). Cada entry `.gg` dentro do ZIP vira um File independente, para que
+ * o restante do fluxo de importação continue exatamente o mesmo.
+ */
+async function expandRomFile(file) {
+  if (!file.name.toLowerCase().endsWith(".zip")) return [file];
+
+  let entries;
+  try {
+    entries = unzipSync(new Uint8Array(await file.arrayBuffer()));
+  } catch (error) {
+    throw new Error(`ZIP inválido: ${errorText(error)}`);
+  }
+
+  const roms = Object.entries(entries)
+    .filter(([path, bytes]) => /\.gg$/i.test(path) && bytes.length > 0)
+    .sort(([a], [b]) => a.localeCompare(b, "pt-BR", { numeric: true }));
+
+  if (!roms.length) {
+    throw new Error("nenhum arquivo .gg foi encontrado dentro do ZIP");
+  }
+
+  return roms.map(([path, bytes]) => {
+    if (bytes.length > MAX_EXTRACTED_ROM_BYTES) {
+      throw new Error(`ROM ${path} é grande demais para importar`);
+    }
+    const name = path.split(/[\\/]/).pop() || "rom.gg";
+    return new File([bytes], name, { type: "application/octet-stream" });
+  });
 }
 
 export function normalizeSearchText(value) {
@@ -69,9 +118,11 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                 ? game.format === "GB"
                 : libraryFormat.value === "gbc"
                   ? game.format === "GBC"
-                  : libraryFormat.value === "pce"
-                    ? game.format === "PCE"
-                    : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
+                  : libraryFormat.value === "gg"
+                    ? game.format === "GG"
+                    : libraryFormat.value === "pce"
+                      ? game.format === "PCE"
+                      : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
         return matchesSearch && matchesFormat;
       })
       .sort((first, second) => {
@@ -146,7 +197,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                   ? game.format
                   : game.format === "PCE"
                     ? "PCE"
-                    : "SNES";
+                    : game.format === "GG"
+                      ? "GG"
+                      : "SNES";
           label = key;
           break;
         case "format":
@@ -181,7 +234,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (typeof saved.search === "string") librarySearch.value = saved.search;
-      if (["all", "nes", "snes", "gba", "gb", "gbc", "pce"].includes(saved.format))
+      if (["all", "nes", "snes", "gba", "gb", "gbc", "gg", "pce"].includes(saved.format))
         libraryFormat.value = saved.format;
       if (
         [
@@ -282,11 +335,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
 
   async function addRomFile(file) {
     const extension = file.name.split(".").pop()?.toLowerCase();
-    if (
-      !["nes", "sfc", "smc", "fig", "gba", "gb", "gbc", "pce"].includes(extension)
-    ) {
+    if (!SUPPORTED_ROM_EXTENSIONS.includes(extension)) {
       throw new Error(
-        "Formato não suportado. Selecione arquivos .nes, .sfc, .smc, .fig, .gba, .gb, .gbc ou .pce.",
+        `Formato não suportado. Selecione arquivos ${SUPPORTED_ROM_LABEL}.`,
       );
     }
 
@@ -342,20 +393,35 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
   async function importRomFiles(files) {
     if (!files.length) return;
     const failures = [];
+
+    // Expande ZIPs antes de calcular o progresso: um arquivo pode conter
+    // várias ROMs Game Gear.
+    const expanded = [];
+    for (const file of files) {
+      try {
+        const roms = await expandRomFile(file);
+        for (const rom of roms) expanded.push({ file: rom, sourceName: file.name });
+      } catch (error) {
+        failures.push(`${file.name}: ${errorText(error)}`);
+      }
+    }
+
     beginLibraryLoading("Importando jogos");
-    libraryLoadingProgress.value = { current: 0, total: files.length };
+    libraryLoadingProgress.value = { current: 0, total: expanded.length };
 
     try {
-      for (let index = 0; index < files.length; index += 1) {
-        const file = files[index];
+      for (let index = 0; index < expanded.length; index += 1) {
+        const { file, sourceName } = expanded[index];
         try {
           await addRomFile(file);
         } catch (error) {
-          failures.push(`${file.name}: ${errorText(error)}`);
+          failures.push(
+            `${sourceName === file.name ? file.name : `${sourceName} → ${file.name}`}: ${errorText(error)}`,
+          );
         } finally {
           libraryLoadingProgress.value = {
             current: index + 1,
-            total: files.length,
+            total: expanded.length,
           };
         }
       }

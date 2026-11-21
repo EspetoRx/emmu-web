@@ -40,6 +40,12 @@ function isGameBoyFormat(format) {
   return format === "GBC" || format === "GB";
 }
 
+// Game Gear tem a mesma resolução LCD do Game Boy, mas usa um core e um
+// controle próprios (dois botões + Start, sem Select).
+function isGameGearFormat(format) {
+  return format === "GG";
+}
+
 function formatClockTime(date = new Date()) {
   return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
@@ -104,7 +110,7 @@ export function useEmulator({
     const format = activeGame.value?.format;
     if (format === "NES") return NES_FRAME_WIDTH;
     if (format === "GBA") return GBA_FRAME_WIDTH;
-    if (isGameBoyFormat(format)) return GBC_FRAME_WIDTH;
+    if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_WIDTH;
     if (format === "PCE") return PCE_FRAME_WIDTH;
     return SNES_FRAME_WIDTH;
   });
@@ -112,7 +118,7 @@ export function useEmulator({
     const format = activeGame.value?.format;
     if (format === "NES") return NES_FRAME_HEIGHT;
     if (format === "GBA") return GBA_FRAME_HEIGHT;
-    if (isGameBoyFormat(format)) return GBC_FRAME_HEIGHT;
+    if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_HEIGHT;
     if (format === "PCE") return PCE_FRAME_HEIGHT;
     return SNES_FRAME_HEIGHT;
   });

@@ -43,10 +43,23 @@ const emit = defineEmits([
 ]);
 
 const activeBindings = computed(() =>
-  props.activePlayer === 2 ? props.draft.p2 : props.draft.p1,
+  props.activePlayer === 2 && props.system.toUpperCase() !== "GG"
+    ? props.draft.p2
+    : props.draft.p1,
 );
 const systemLabel = computed(() => props.system.toUpperCase());
 const visibleActions = computed(() => {
+  if (systemLabel.value === "GG") {
+    // O Game Gear tem apenas D-pad, dois botões (1/2) e Start. As ações A/B
+    // continuam existindo nos bindings; apenas os rótulos mudam para 1/2.
+    return CONTROL_ACTIONS.filter(
+      ({ id }) => !["X", "Y", "L", "R", "Select"].includes(id),
+    ).map((action) => {
+      if (action.id === "A") return { ...action, label: "1" };
+      if (action.id === "B") return { ...action, label: "2" };
+      return action;
+    });
+  }
   if (["GBC", "GB"].includes(systemLabel.value)) {
     return CONTROL_ACTIONS.filter(
       ({ id }) => !["X", "Y", "L", "R", "U", "D"].includes(id),
@@ -77,14 +90,16 @@ const visibleActions = computed(() => {
           @click="emit('select-player', 1)">
           P1 · Jogador 1
         </button>
-        <button type="button" role="tab" class="secondary-button" :aria-selected="activePlayer === 2"
-          @click="emit('select-player', 2)">
-          P2 · Jogador 2 {{ draft.p2Enabled ? "(Conectada)" : "(Inserir)" }}
-        </button>
-        <label class="p2-enable-toggle">
-          <input type="checkbox" :checked="draft.p2Enabled" @change="emit('set-p2-enabled', $event.target.checked)" />
-          Manete P2 habilitada
-        </label>
+        <template v-if="systemLabel !== 'GG'">
+          <button type="button" role="tab" class="secondary-button" :aria-selected="activePlayer === 2"
+            @click="emit('select-player', 2)">
+            P2 · Jogador 2 {{ draft.p2Enabled ? "(Conectada)" : "(Inserir)" }}
+          </button>
+          <label class="p2-enable-toggle">
+            <input type="checkbox" :checked="draft.p2Enabled" @change="emit('set-p2-enabled', $event.target.checked)" />
+            Manete P2 habilitada
+          </label>
+        </template>
       </div>
 
       <p class="controls-instructions">

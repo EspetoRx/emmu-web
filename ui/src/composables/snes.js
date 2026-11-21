@@ -85,6 +85,13 @@ class MesenTauriClient {
     return state instanceof Uint8Array ? state : new Uint8Array(state || []);
   }
 
+  async capturePreview() {
+    // O canvas do WebView fica "tainted" porque o frame vem de emmu-frame://.
+    // O lado Rust codifica o último frame em PNG e devolve os bytes aqui.
+    const bytes = await tauriInvoke("mesen_capture_preview");
+    return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  }
+
   async loadState(state) {
     const bytes = state instanceof Uint8Array ? state : new Uint8Array(state);
     await tauriInvoke("mesen_load_state", { state: Array.from(bytes) });

@@ -176,7 +176,18 @@ export function useEmulator({
     context.putImageData(frameImageData, 0, 0);
   }
 
-  function capturePreview() {
+  async function capturePreview() {
+    // No desktop o frame exibido vem de um protocolo customizado, o que deixa o
+    // canvas marcado como "tainted" e faz toBlob() falhar. O core native
+    // codifica o último frame diretamente em PNG.
+    if (isTauriDesktop() && typeof snesCore?.capturePreview === "function") {
+      const bytes = await snesCore.capturePreview();
+      if (!bytes?.length) {
+        throw new Error("Não foi possível capturar a prévia do jogo.");
+      }
+      return new Blob([bytes], { type: "image/png" });
+    }
+
     const canvas = canvasRef.value;
     if (!canvas) {
       return Promise.reject(

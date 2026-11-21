@@ -240,12 +240,12 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba, 'gbc-action-pad': isGameBoy }">
-          <button v-if="!isGba && !isGameBoy" class="touch-button" aria-label="Y" @pointerdown="pressButton('Y', true, $event)"
+          <button v-if="!isGba && !isGameBoy && !isPce" class="touch-button" aria-label="Y" @pointerdown="pressButton('Y', true, $event)"
             @pointerup="pressButton('Y', false, $event)" @pointercancel="pressButton('Y', false, $event)"
             @pointerleave="pressButton('Y', false, $event)">
             Y
           </button>
-          <button v-if="!isGba && !isGameBoy" class="touch-button" aria-label="X" @pointerdown="pressButton('X', true, $event)"
+          <button v-if="!isGba && !isGameBoy && !isPce" class="touch-button" aria-label="X" @pointerdown="pressButton('X', true, $event)"
             @pointerup="pressButton('X', false, $event)" @pointercancel="pressButton('X', false, $event)"
             @pointerleave="pressButton('X', false, $event)">
             X

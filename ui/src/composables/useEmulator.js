@@ -16,6 +16,8 @@ const SMS_FRAME_WIDTH = 256;
 const SMS_FRAME_HEIGHT = 224;
 const WS_FRAME_WIDTH = 224;
 const WS_FRAME_HEIGHT = 144;
+const N64_FRAME_WIDTH = 320;
+const N64_FRAME_HEIGHT = 240;
 const FRAME_INTERVAL = 1000 / 60;
 const CHECKPOINT_INTERVAL = 5000;
 
@@ -133,6 +135,7 @@ export function useEmulator({
     const format = activeGame.value?.format;
     if (format === "NES") return NES_FRAME_WIDTH;
     if (format === "GBA") return GBA_FRAME_WIDTH;
+    if (format === "N64") return N64_FRAME_WIDTH;
     if (format === "SMS") return SMS_FRAME_WIDTH;
     if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_WIDTH;
     if (isWonderSwanFormat(format)) return WS_FRAME_WIDTH;
@@ -143,6 +146,7 @@ export function useEmulator({
     const format = activeGame.value?.format;
     if (format === "NES") return NES_FRAME_HEIGHT;
     if (format === "GBA") return GBA_FRAME_HEIGHT;
+    if (format === "N64") return N64_FRAME_HEIGHT;
     if (format === "SMS") return SMS_FRAME_HEIGHT;
     if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_HEIGHT;
     if (isWonderSwanFormat(format)) return WS_FRAME_HEIGHT;
@@ -468,7 +472,10 @@ export function useEmulator({
     event?.preventDefault?.();
     if (!snesCore) return;
     const core = snesCore;
-    const slot = player === 2 ? 2 : 1;
+    // N64 tem 4 jogadores; os demais cores apenas P1/P2.
+    const slot = activeGame.value?.format === "N64"
+      ? Math.max(1, Math.min(4, player | 0 || 1))
+      : (player === 2 ? 2 : 1);
     const key = `${slot}:${button}`;
     if (pressed) pressedButtons.add(key);
     else pressedButtons.delete(key);
@@ -682,6 +689,7 @@ export function useEmulator({
         try {
           await core.loadState(new Uint8Array(await game.state.arrayBuffer()));
         } catch (error) {
+          console.error("[emmu] openGame:load-state-failed", error);
           if (
             loadGeneration !== gameLoadGeneration ||
             activeGame.value?.id !== game.id
@@ -725,6 +733,7 @@ export function useEmulator({
       void saveCurrentProgress().catch(handleCheckpointError);
       scheduleEmulationFrame(emulationGeneration);
     } catch (error) {
+      console.error("[emmu] openGame:error", { name: game?.fileName, format: game?.format, error });
       if (loadGeneration !== gameLoadGeneration) {
         if (core && snesCore !== core) core.dispose();
         return;

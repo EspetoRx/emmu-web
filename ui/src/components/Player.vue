@@ -65,18 +65,14 @@ const gameStageRef = ref(null);
 const canvasRef = ref(null);
 const isFullscreen = ref(false);
 const isGba = computed(() => props.activeGame.format === "GBA");
-const isGameBoy = computed(() =>
-  ["GBC", "GB"].includes(props.activeGame.format),
-);
+const isGameBoy = computed(() => ["GBC", "GB"].includes(props.activeGame.format));
 const isPce = computed(() => props.activeGame.format === "PCE");
 const isGameGear = computed(() => props.activeGame.format === "GG");
 const isMasterSystem = computed(() => props.activeGame.format === "SMS");
 const isWonderSwan = computed(() => props.activeGame.format === "WS");
-// Game Gear e Game Boy compartilham a resolução LCD (160x144) e o mesmo estilo
-// de canvas, mas GG tem apenas 2 botões + Start (sem Select nem P2).
+const isN64 = computed(() => props.activeGame.format === "N64");
 const isHandheld = computed(() => isGameBoy.value || isGameGear.value);
-// WonderSwan também é portátil e não tem P2, mas usa 224x144 e um segundo
-// direcional de 4 vias; por isso não entra em `isHandheld`.
+// WonderSwan é portátil e não tem P2. N64 tem 4 jogadores, tratado separadamente.
 const isSinglePlayer = computed(() => isHandheld.value || isWonderSwan.value);
 
 // Os controles de toque são sempre do jogador 1. O quarto argumento carrega o
@@ -152,7 +148,17 @@ onBeforeUnmount(() => {
           <span>P1</span>
         </button>
 
-        <button v-if="!isGba && !isSinglePlayer" type="button" class="secondary-button pad-button" :class="{ 'pad-connected': p2Enabled }"
+        <div v-if="isN64" class="n64-player-select">
+          <label class="n64-player-label" for="n64-player">Jogador</label>
+          <select id="n64-player" class="secondary-button n64-player-dropdown" @change="emit('open-p1-controls', Number($event.target.value)); $event.target.value='1'">
+            <option value="1">P1</option>
+            <option value="2">P2</option>
+            <option value="3">P3</option>
+            <option value="4">P4</option>
+          </select>
+        </div>
+
+        <button v-if="!isGba && !isSinglePlayer && !isN64" type="button" class="secondary-button pad-button" :class="{ 'pad-connected': p2Enabled }"
           :aria-pressed="p2Enabled" :aria-label="p2Enabled
               ? 'Configurar manete do Jogador 2'
               : 'Inserir e configurar manete do Jogador 2'
@@ -211,14 +217,14 @@ onBeforeUnmount(() => {
 
     <div ref="gameStageRef" class="game-stage">
       <canvas ref="canvasRef" class="game-canvas"
-        :class="{ 'nes-canvas': activeGame.format === 'NES' || isMasterSystem, 'gba-canvas': isGba, 'gbc-canvas': isHandheld, 'ws-canvas': isWonderSwan, 'pce-canvas': isPce }" :width="frameWidth"
+        :class="{ 'nes-canvas': activeGame.format === 'NES' || isMasterSystem, 'gba-canvas': isGba, 'gbc-canvas': isHandheld, 'ws-canvas': isWonderSwan, 'pce-canvas': isPce, 'n64-canvas': isN64 }" :width="frameWidth"
         :height="frameHeight" aria-label="Tela do jogo" tabindex="0" @contextmenu.prevent></canvas>
       <button v-if="isFullscreen" class="fullscreen-exit-button" aria-label="Sair da tela cheia"
         @click="toggleFullscreen">
         Sair da tela cheia
       </button>
       <div v-if="isMobileDevice" class="touch-controls"
-        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isGba ? 'GBA' : isGameGear ? 'Game Gear' : isMasterSystem ? 'Master System' : isWonderSwan ? 'WonderSwan' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
+        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isN64 ? 'Nintendo 64' : isGba ? 'GBA' : isGameGear ? 'Game Gear' : isMasterSystem ? 'Master System' : isWonderSwan ? 'WonderSwan' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
         <div class="touch-dpad">
           <button class="touch-button dpad-up" aria-label="Cima" @pointerdown="pressButton('Up', true, $event)"
             @pointerup="pressButton('Up', false, $event)"
@@ -274,13 +280,46 @@ onBeforeUnmount(() => {
             Y→
           </button>
         </div>
-        <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba, 'gbc-action-pad': isHandheld }">
-          <button v-if="!isGba && !isHandheld && !isPce && !isWonderSwan && !isMasterSystem" class="touch-button" aria-label="Y" @pointerdown="pressButton('Y', true, $event)"
+        <div v-if="isN64" class="touch-dpad n64-analog-pad" aria-label="Analógico do Nintendo 64">
+          <button class="touch-button dpad-up" aria-label="Analógico: cima" @pointerdown="pressButton('AnalogUp', true, $event)"
+            @pointerup="pressButton('AnalogUp', false, $event)"
+            @pointercancel="pressButton('AnalogUp', false, $event)"
+            @pointerleave="pressButton('AnalogUp', false, $event)">
+            A↑
+          </button>
+          <button class="touch-button dpad-left" aria-label="Analógico: esquerda" @pointerdown="pressButton('AnalogLeft', true, $event)"
+            @pointerup="pressButton('AnalogLeft', false, $event)"
+            @pointercancel="pressButton('AnalogLeft', false, $event)"
+            @pointerleave="pressButton('AnalogLeft', false, $event)">
+            A←
+          </button>
+          <button class="touch-button dpad-down" aria-label="Analógico: baixo" @pointerdown="pressButton('AnalogDown', true, $event)"
+            @pointerup="pressButton('AnalogDown', false, $event)"
+            @pointercancel="pressButton('AnalogDown', false, $event)"
+            @pointerleave="pressButton('AnalogDown', false, $event)">
+            A↓
+          </button>
+          <button class="touch-button dpad-right" aria-label="Analógico: direita" @pointerdown="pressButton('AnalogRight', true, $event)"
+            @pointerup="pressButton('AnalogRight', false, $event)"
+            @pointercancel="pressButton('AnalogRight', false, $event)"
+            @pointerleave="pressButton('AnalogRight', false, $event)">
+            A→
+          </button>
+        </div>
+        <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba, 'gbc-action-pad': isHandheld, 'n64-action-pad': isN64 }">
+          <button v-if="isN64" class="touch-button touch-shoulder" aria-label="L" @pointerdown="pressButton('L', true, $event)" @pointerup="pressButton('L', false, $event)" @pointercancel="pressButton('L', false, $event)" @pointerleave="pressButton('L', false, $event)">L</button>
+          <button v-if="isN64" class="touch-button touch-shoulder" aria-label="R" @pointerdown="pressButton('R', true, $event)" @pointerup="pressButton('R', false, $event)" @pointercancel="pressButton('R', false, $event)" @pointerleave="pressButton('R', false, $event)">R</button>
+          <button v-if="isN64" class="touch-button" aria-label="Z" @pointerdown="pressButton('Z', true, $event)" @pointerup="pressButton('Z', false, $event)" @pointercancel="pressButton('Z', false, $event)" @pointerleave="pressButton('Z', false, $event)">Z</button>
+          <button v-if="isN64" class="touch-button" aria-label="C Up" @pointerdown="pressButton('CUp', true, $event)" @pointerup="pressButton('CUp', false, $event)" @pointercancel="pressButton('CUp', false, $event)" @pointerleave="pressButton('CUp', false, $event)">C↑</button>
+          <button v-if="isN64" class="touch-button" aria-label="C Left" @pointerdown="pressButton('CLeft', true, $event)" @pointerup="pressButton('CLeft', false, $event)" @pointercancel="pressButton('CLeft', false, $event)" @pointerleave="pressButton('CLeft', false, $event)">C←</button>
+          <button v-if="isN64" class="touch-button" aria-label="C Down" @pointerdown="pressButton('CDown', true, $event)" @pointerup="pressButton('CDown', false, $event)" @pointercancel="pressButton('CDown', false, $event)" @pointerleave="pressButton('CDown', false, $event)">C↓</button>
+          <button v-if="isN64" class="touch-button" aria-label="C Right" @pointerdown="pressButton('CRight', true, $event)" @pointerup="pressButton('CRight', false, $event)" @pointercancel="pressButton('CRight', false, $event)" @pointerleave="pressButton('CRight', false, $event)">C→</button>
+          <button v-if="!isGba && !isHandheld && !isPce && !isWonderSwan && !isMasterSystem && !isN64" class="touch-button" aria-label="Y" @pointerdown="pressButton('Y', true, $event)"
             @pointerup="pressButton('Y', false, $event)" @pointercancel="pressButton('Y', false, $event)"
             @pointerleave="pressButton('Y', false, $event)">
             Y
           </button>
-          <button v-if="!isGba && !isHandheld && !isPce && !isWonderSwan && !isMasterSystem" class="touch-button" aria-label="X" @pointerdown="pressButton('X', true, $event)"
+          <button v-if="!isGba && !isHandheld && !isPce && !isWonderSwan && !isMasterSystem && !isN64" class="touch-button" aria-label="X" @pointerdown="pressButton('X', true, $event)"
             @pointerup="pressButton('X', false, $event)" @pointercancel="pressButton('X', false, $event)"
             @pointerleave="pressButton('X', false, $event)">
             X
@@ -307,7 +346,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div class="touch-system-pad">
-          <button v-if="!isGameGear && !isWonderSwan && !isMasterSystem" class="touch-button" aria-label="Select" @pointerdown="pressButton('Select', true, $event)"
+          <button v-if="!isGameGear && !isWonderSwan && !isMasterSystem && !isN64" class="touch-button" aria-label="Select" @pointerdown="pressButton('Select', true, $event)"
             @pointerup="pressButton('Select', false, $event)"
             @pointercancel="pressButton('Select', false, $event)"
             @pointerleave="pressButton('Select', false, $event)">
@@ -341,14 +380,17 @@ onBeforeUnmount(() => {
   color: #4ade80;
 }
 
-/* Segundo direcional do WonderSwan, compacto para caber ao lado do principal. */
-.ws-second-pad {
+/* Segundo direcional do WonderSwan e analógico do N64: compactos para caber
+   ao lado do direcional principal. */
+.ws-second-pad,
+.n64-analog-pad {
   grid-template: repeat(2, 30px) / repeat(3, 30px);
   gap: 2px;
   align-self: flex-end;
 }
 
-.ws-second-pad .touch-button {
+.ws-second-pad .touch-button,
+.n64-analog-pad .touch-button {
   min-width: 28px;
   min-height: 28px;
   padding: 0 4px;
@@ -357,19 +399,23 @@ onBeforeUnmount(() => {
   font-size: 9px;
 }
 
-.ws-second-pad .dpad-up {
+.ws-second-pad .dpad-up,
+.n64-analog-pad .dpad-up {
   grid-area: 1 / 2;
 }
 
-.ws-second-pad .dpad-left {
+.ws-second-pad .dpad-left,
+.n64-analog-pad .dpad-left {
   grid-area: 2 / 1;
 }
 
-.ws-second-pad .dpad-down {
+.ws-second-pad .dpad-down,
+.n64-analog-pad .dpad-down {
   grid-area: 2 / 2;
 }
 
-.ws-second-pad .dpad-right {
+.ws-second-pad .dpad-right,
+.n64-analog-pad .dpad-right {
   grid-area: 2 / 3;
 }
 </style>

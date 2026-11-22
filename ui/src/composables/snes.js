@@ -117,6 +117,7 @@ class MesenTauriClient {
 
 class EmulationWorkerClient {
   constructor() {
+    // [debug-core] console.info("[emmu] worker:create");
     this.worker = new Worker(
       new URL("./../workers/snes.worker.js", import.meta.url),
       {
@@ -125,18 +126,25 @@ class EmulationWorkerClient {
     );
     this.nextRequestId = 0;
     this.pendingRequests = new Map();
+    this.system = null;
     this.disposed = false;
+    // [debug-input] this._loggedSetButtons = new Set();
     this.worker.addEventListener("message", ({ data }) => {
       const request = this.pendingRequests.get(data.id);
       if (!request) return;
       this.pendingRequests.delete(data.id);
-      if (data.error) request.reject(new Error(data.error));
+      if (data.error) {
+        console.error("[emmu] worker:response-error", { id: data.id, error: data.error, stack: data.stack });
+        request.reject(new Error(data.error));
+      }
       else request.resolve(data.result);
     });
     this.worker.addEventListener("error", (event) => {
+      console.error("[emmu] worker:error-event", { message: event.message, filename: event.filename, lineno: event.lineno, colno: event.colno, error: event.error });
       this.fail(new Error(event.message || "Falha no worker de emulação."));
     });
     this.worker.addEventListener("messageerror", (event) => {
+      console.error("[emmu] worker:messageerror", event);
       this.fail(
         new Error("Não foi possível receber dados do worker de emulação."),
       );
@@ -149,6 +157,17 @@ class EmulationWorkerClient {
     }
 
     const id = ++this.nextRequestId;
+    if (type === "initialize") this.system = payload.system;
+    // [debug-core] Logs de request. Comentado após validação no web.
+    // if (type === "initialize") {
+    //   console.info("[emmu] worker:request", { id, type, system: payload.system ?? this.system });
+    // } else if (type === "setButton") {
+    //   const logKey = `${payload.player}:${payload.button}:${payload.pressed}`;
+    //   if (!this._loggedSetButtons.has(logKey)) {
+    //     this._loggedSetButtons.add(logKey);
+    //     console.info("[emmu] worker:request", { id, type, system: payload.system ?? this.system, player: payload.player, button: payload.button, pressed: payload.pressed });
+    //   }
+    // }
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(id, { resolve, reject });
       try {
@@ -183,7 +202,10 @@ class EmulationWorkerClient {
   }
 
   setButton(button, pressed, player = 1) {
-    const slot = player === 2 ? 2 : 1;
+    // N64 tem 4 jogadores reais; os demais cores usam apenas P1/P2.
+    const slot = this.system === "N64"
+      ? Math.max(1, Math.min(4, player | 0 || 1))
+      : (player === 2 ? 2 : 1);
     return this.request("setButton", { button, pressed, player: slot });
   }
 
@@ -221,12 +243,13 @@ export async function createEmulator(romBytes, format) {
                 ? "WS"
                 : format === "PCE"
                 ? "PCE"
-                : "SNES";
+                : format === "N64"
+                  ? "N64"
+                  : "SNES";
 
-  if (isTauriDesktop()) {
-    // No desktop, todos os consoles (incluindo GG e WS) rodam no Mesen, com
-    // SDL para áudio e save states .mss. No navegador, NES/SNES usam WASM,
-    // GB/GBC/GG/WS/PCE têm cores próprios e o GBA usa o core Web-GBA.
+  if (isTauriDesktop() && system !== "N64") {
+    // No desktop, a maioria dos consoles roda no Mesen, com SDL para áudio e
+    // save states .mss. N64 usa o core WASM no WebView (Mesen não suporta N64).
     const romCopy = new Uint8Array(romBytes);
     const screenSize = await tauriInvoke("mesen_init_rom", {
       romBytes: Array.from(romCopy),

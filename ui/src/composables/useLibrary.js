@@ -18,7 +18,9 @@ function errorText(error) {
 
 // `.wsc` (WonderSwan Color) usa o mesmo core e o mesmo formato lógico `.ws`.
 function formatForExtension(extension) {
-  return extension === "wsc" ? "WS" : extension.toUpperCase();
+  if (extension === "wsc") return "WS";
+  if (extension === "z64" || extension === "n64" || extension === "v64") return "N64";
+  return extension.toUpperCase();
 }
 
 const SUPPORTED_ROM_EXTENSIONS = [
@@ -34,9 +36,12 @@ const SUPPORTED_ROM_EXTENSIONS = [
   "ws",
   "wsc",
   "pce",
+  "z64",
+  "n64",
+  "v64",
 ];
 const SUPPORTED_ROM_LABEL =
-  ".nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .sms, .ws, .wsc e .pce";
+  ".nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .sms, .ws, .wsc, .pce, .z64, .n64 e .v64";
 // O limite evita ZIP bombs (nenhum cartucho portátil desta geração chega perto).
 const MAX_EXTRACTED_ROM_BYTES = 8 * 1024 * 1024;
 
@@ -57,18 +62,22 @@ async function expandRomFile(file) {
 
   const roms = Object.entries(entries)
     .filter(([path, bytes]) =>
-      /\.(gg|sms|ws|wsc)$/i.test(path) && bytes.length > 0,
+      /\.(gg|sms|ws|wsc|z64|n64|v64)$/i.test(path) && bytes.length > 0,
     )
     .sort(([a], [b]) => a.localeCompare(b, "pt-BR", { numeric: true }));
 
   if (!roms.length) {
     throw new Error(
-      "nenhum arquivo .gg, .sms, .ws ou .wsc foi encontrado dentro do ZIP",
+      "nenhum arquivo .gg, .sms, .ws, .wsc, .z64, .n64 ou .v64 foi encontrado dentro do ZIP",
     );
   }
 
   return roms.map(([path, bytes]) => {
-    if (bytes.length > MAX_EXTRACTED_ROM_BYTES) {
+    const ext = (path.split(".").pop() || "").toLowerCase();
+    const limit = ext === "z64" || ext === "n64" || ext === "v64"
+      ? 64 * 1024 * 1024
+      : MAX_EXTRACTED_ROM_BYTES;
+    if (bytes.length > limit) {
       throw new Error(`ROM ${path} é grande demais para importar`);
     }
     const name = path.split(/[\\/]/).pop() || "rom.bin";
@@ -135,10 +144,12 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                     : libraryFormat.value === "sms"
                       ? game.format === "SMS"
                       : libraryFormat.value === "ws"
-                      ? game.format === "WS"
-                      : libraryFormat.value === "pce"
-                      ? game.format === "PCE"
-                      : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
+                        ? game.format === "WS"
+                        : libraryFormat.value === "pce"
+                          ? game.format === "PCE"
+                          : libraryFormat.value === "n64"
+                            ? game.format === "N64"
+                            : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
         return matchesSearch && matchesFormat;
       })
       .sort((first, second) => {
@@ -219,7 +230,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                         ? "SMS"
                         : game.format === "WS"
                           ? "WS"
-                          : "SNES";
+                          : game.format === "N64"
+                            ? "N64"
+                            : "SNES";
           label = key;
           break;
         case "format":
@@ -255,7 +268,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       const saved = JSON.parse(raw);
       if (typeof saved.search === "string") librarySearch.value = saved.search;
       if (
-        ["all", "nes", "snes", "gba", "gb", "gbc", "gg", "ws", "pce"].includes(
+        ["all", "nes", "snes", "gba", "gb", "gbc", "gg", "sms", "ws", "pce", "n64"].includes(
           saved.format,
         )
       )

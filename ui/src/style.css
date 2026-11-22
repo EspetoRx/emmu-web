@@ -971,6 +971,12 @@ p {
   aspect-ratio: 14 / 9;
 }
 
+/* N64 renderiza 320x240 (4:3). Sem esta regra o canvas herda 8/7 do SNES e
+   o jogo fica com barras/altura diferente da área de desenho no desktop. */
+.game-canvas.n64-canvas {
+  aspect-ratio: 4 / 3;
+}
+
 .game-canvas:focus {
   outline: none;
 }
@@ -1004,6 +1010,10 @@ p {
 
 .game-stage:fullscreen .game-canvas.ws-canvas {
   width: min(100vw, calc(100dvh * 14 / 9));
+}
+
+.game-stage:fullscreen .game-canvas.n64-canvas {
+  width: min(100vw, calc(100dvh * 4 / 3));
 }
 
 .game-stage:fullscreen .touch-controls {
@@ -1068,13 +1078,24 @@ p {
   text-align: right;
 }
 
-.error-toast {
+.error-toast-stack {
   position: fixed;
   top: calc(78px + env(safe-area-inset-top));
   right: max(16px, env(safe-area-inset-right));
   z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   width: min(440px, calc(100vw - 32px));
-  padding: 11px 14px;
+  pointer-events: none;
+}
+
+.error-toast {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px 16px;
   border: 1px solid rgba(255, 146, 142, 0.35);
   border-radius: 8px;
   background: rgba(68, 23, 28, 0.96);
@@ -1083,7 +1104,65 @@ p {
   font-size: 12px;
   line-height: 1.45;
   overflow-wrap: anywhere;
-  pointer-events: none;
+  pointer-events: auto;
+}
+
+.error-toast-message {
+  flex: 1;
+  min-width: 0;
+}
+
+.error-toast-close {
+  flex: none;
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(255, 210, 208, 0.28);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffd2d0;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.error-toast-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.error-toast-progress {
+  position: absolute;
+  right: 14px;
+  bottom: 7px;
+  left: 14px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(255, 210, 208, 0.16);
+}
+
+.error-toast-progress-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #ff9e99;
+  transform-origin: left center;
+  animation-name: error-toast-countdown;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.error-toast-progress-fill.is-paused {
+  animation-play-state: paused;
+}
+
+@keyframes error-toast-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
 }
 
 .fullscreen-exit-button {

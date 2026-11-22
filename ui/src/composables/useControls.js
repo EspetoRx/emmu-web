@@ -18,6 +18,17 @@ export const CONTROL_ACTIONS = [
   { id: "R", label: "R" },
   { id: "Start", label: "Start" },
   { id: "Select", label: "Select" },
+  { id: "Z", label: "Z" },
+  { id: "CUp", label: "C ↑" },
+  { id: "CDown", label: "C ↓" },
+  { id: "CLeft", label: "C ←" },
+  { id: "CRight", label: "C →" },
+  // O controle do N64 tem um único analógico. O bridge converte essas ações
+  // em axisX/axisY enviados ao core por _neil_send_mobile_controls().
+  { id: "AnalogUp", label: "Analógico ↑" },
+  { id: "AnalogDown", label: "Analógico ↓" },
+  { id: "AnalogLeft", label: "Analógico ←" },
+  { id: "AnalogRight", label: "Analógico →" },
 ];
 
 export const DEFAULT_CONTROL_BINDINGS = {
@@ -33,6 +44,15 @@ export const DEFAULT_CONTROL_BINDINGS = {
   R: "KeyW",
   Start: "Enter",
   Select: "ShiftLeft",
+  Z: "KeyE",
+  CUp: "Numpad8",
+  CDown: "Numpad2",
+  CLeft: "Numpad4",
+  CRight: "Numpad6",
+  AnalogUp: "NumpadAdd",
+  AnalogDown: "NumpadSubtract",
+  AnalogLeft: "NumpadMultiply",
+  AnalogRight: "NumpadDivide",
 };
 
 export const DEFAULT_P2_CONTROL_BINDINGS = {
@@ -48,6 +68,31 @@ export const DEFAULT_P2_CONTROL_BINDINGS = {
   R: "KeyP",
   Start: "NumpadEnter",
   Select: "ShiftRight",
+  Z: "KeyH",
+  CUp: "Numpad7",
+  CDown: "Numpad1",
+  CLeft: "Numpad0",
+  CRight: "Numpad9",
+  AnalogUp: "BracketLeft",
+  AnalogDown: "BracketRight",
+  AnalogLeft: "Semicolon",
+  AnalogRight: "Quote",
+};
+
+export const DEFAULT_P3_CONTROL_BINDINGS = {
+  Up: "KeyT", Down: "KeyG", Left: "KeyF", Right: "Digit8",
+  A: "KeyV", B: "KeyC", X: "KeyR", Y: "KeyD", L: "KeyB", R: "Digit0",
+  Start: "Digit5", Select: "Digit6", Z: "Digit4",
+  CUp: "Digit1", CDown: "Digit2", CLeft: "Digit3", CRight: "Digit7",
+  AnalogUp: "Comma", AnalogDown: "Period", AnalogLeft: "Slash", AnalogRight: "Backslash",
+};
+
+export const DEFAULT_P4_CONTROL_BINDINGS = {
+  Up: "Home", Down: "End", Left: "Delete", Right: "PageDown",
+  A: "Insert", B: "PageUp", X: "F1", Y: "F2", L: "F3", R: "F4",
+  Start: "F5", Select: "F6", Z: "F7",
+  CUp: "F8", CDown: "F9", CLeft: "F10", CRight: "F11",
+  AnalogUp: "Minus", AnalogDown: "Equal", AnalogLeft: "Space", AnalogRight: "Backspace",
 };
 
 export const RESERVED_CONTROL_CODES = new Set([
@@ -79,6 +124,20 @@ export function formatControlKey(code) {
     Space: "Espaço",
     Backspace: "Backspace",
     Delete: "Delete",
+    NumpadAdd: "Num +",
+    NumpadSubtract: "Num −",
+    NumpadMultiply: "Num ×",
+    NumpadDivide: "Num ÷",
+    BracketLeft: "[",
+    BracketRight: "]",
+    Semicolon: ";",
+    Quote: "'",
+    Comma: ",",
+    Period: ".",
+    Slash: "/",
+    Backslash: "\\",
+    Minus: "-",
+    Equal: "=",
   };
   if (labels[code]) return labels[code];
   if (code.startsWith("Key")) return code.slice(3);
@@ -108,48 +167,105 @@ function validateSinglePlayerBindings(bindings, playerLabel) {
   return validated;
 }
 
-export function validateControlBindings(raw) {
-  const isLegacyMap =
-    raw &&
-    typeof raw === "object" &&
-    !raw.p1 &&
-    !raw.p2 &&
-    typeof raw.Up === "string";
+// Saves feitos antes das ações de N64 não têm Z/C*; saves antigos do P3 usam
+// KeyH/KeyY, que conflitam com Z/L do P2. Preencher/migrar aqui evita o alerta
+// de "tecla inválida" ao iniciar, sem descartar o resto da configuração.
+function migrateLegacyBindings(raw) {
+  if (!raw || typeof raw !== "object") return raw;
+  // Mapa legado (sem p1/p2) é tratado separadamente em validateControlBindings.
+  if (!raw.p1 && !raw.p2 && typeof raw.Up === "string") return raw;
 
-  const p1Raw = isLegacyMap ? raw : (raw?.p1 ?? DEFAULT_CONTROL_BINDINGS);
-  const p2Enabled = Boolean(raw?.p2Enabled);
-  const p2Raw = raw?.p2 ?? DEFAULT_P2_CONTROL_BINDINGS;
+  const defaults = {
+    p1: DEFAULT_CONTROL_BINDINGS,
+    p2: DEFAULT_P2_CONTROL_BINDINGS,
+    p3: DEFAULT_P3_CONTROL_BINDINGS,
+    p4: DEFAULT_P4_CONTROL_BINDINGS,
+  };
+  const migrated = { ...raw };
+  let changed = false;
 
-  const p1 = validateSinglePlayerBindings(p1Raw, "Jogador 1");
-  const p2 = validateSinglePlayerBindings(p2Raw, "Jogador 2");
-
-  if (p2Enabled) {
-    const p1Codes = new Map(
-      CONTROL_ACTIONS.map(({ id, label }) => [p1[id], label]),
-    );
-    for (const { id, label } of CONTROL_ACTIONS) {
-      const code = p2[id];
-      if (p1Codes.has(code)) {
-        throw new Error(
-          `A tecla ${formatControlKey(code)} já está em uso no Jogador 1 (${p1Codes.get(code)}).`,
+  for (const [key, fallback] of Object.entries(defaults)) {
+    const saved = raw[key];
+    if (!saved || typeof saved !== "object") {
+      migrated[key] = { ...fallback };
+      changed = true;
+      continue;
+    }
+    const merged = { ...fallback, ...saved };
+    const spares = {
+      p1: ["NumpadAdd", "NumpadSubtract", "NumpadMultiply", "NumpadDivide", "Space", "Backspace"],
+      p2: ["BracketLeft", "BracketRight", "Semicolon", "Quote", "NumpadAdd", "NumpadSubtract"],
+      p3: ["Comma", "Period", "Slash", "Backslash", "Minus", "Equal"],
+      p4: ["Minus", "Equal", "Space", "Backspace", "Comma", "Period"],
+    }[key];
+    for (const { id } of CONTROL_ACTIONS) {
+      const code = merged[id];
+      if (typeof code !== "string" || !code || RESERVED_CONTROL_CODES.has(code)) {
+        const used = new Set(
+          Object.values(merged).filter((value) => typeof value === "string"),
         );
+        merged[id] = !used.has(fallback[id])
+          ? fallback[id]
+          : (spares.find((candidate) => !used.has(candidate)) ?? fallback[id]);
+        changed = true;
       }
-      p2[id] = code;
+    }
+    if (key === "p3") {
+      if (merged.Right === "KeyH") { merged.Right = fallback.Right; changed = true; }
+      if (merged.R === "KeyY") { merged.R = fallback.R; changed = true; }
+    }
+    migrated[key] = merged;
+  }
+  return changed ? migrated : raw;
+}
+
+export function validateControlBindings(raw) {
+  const source = migrateLegacyBindings(raw);
+  const isLegacyMap =
+    source && typeof source === "object" && !source.p1 && !source.p2 && typeof source.Up === "string";
+
+  const p1Raw = isLegacyMap
+    ? { ...DEFAULT_CONTROL_BINDINGS, ...source }
+    : (source?.p1 ?? DEFAULT_CONTROL_BINDINGS);
+  const p2Enabled = Boolean(source?.p2Enabled);
+  const p1 = validateSinglePlayerBindings(p1Raw, "Jogador 1");
+  const p2 = validateSinglePlayerBindings(source?.p2 ?? DEFAULT_P2_CONTROL_BINDINGS, "Jogador 2");
+  const p3 = validateSinglePlayerBindings(source?.p3 ?? DEFAULT_P3_CONTROL_BINDINGS, "Jogador 3");
+  const p4 = validateSinglePlayerBindings(source?.p4 ?? DEFAULT_P4_CONTROL_BINDINGS, "Jogador 4");
+
+  const active = [["P1", p1], ["P3", p3], ["P4", p4]];
+  if (p2Enabled) active.splice(1, 0, ["P2", p2]);
+  for (let i = 0; i < active.length; i++) {
+    for (let j = i + 1; j < active.length; j++) {
+      const [na, ma] = active[i];
+      const [nb, mb] = active[j];
+      for (const { id, label } of CONTROL_ACTIONS) {
+        const code = ma[id];
+        for (const { id: oid, label: olabel } of CONTROL_ACTIONS) {
+          if (code === mb[oid]) {
+            throw new Error(`A tecla ${formatControlKey(code)} está em conflito entre ${label} (${na}) e ${olabel} (${nb}).`);
+          }
+        }
+      }
     }
   }
 
-  return { p1, p2, p2Enabled };
+  return { p1, p2, p3, p4, p2Enabled };
 }
 
 export function useControls({ onError, onBeforeOpen } = {}) {
   const controlBindings = ref({
     p1: { ...DEFAULT_CONTROL_BINDINGS },
     p2: { ...DEFAULT_P2_CONTROL_BINDINGS },
+    p3: { ...DEFAULT_P3_CONTROL_BINDINGS },
+    p4: { ...DEFAULT_P4_CONTROL_BINDINGS },
     p2Enabled: false,
   });
   const controlDraft = ref({
     p1: { ...DEFAULT_CONTROL_BINDINGS },
     p2: { ...DEFAULT_P2_CONTROL_BINDINGS },
+    p3: { ...DEFAULT_P3_CONTROL_BINDINGS },
+    p4: { ...DEFAULT_P4_CONTROL_BINDINGS },
     p2Enabled: false,
   });
   const activePlayer = ref(1);
@@ -162,6 +278,8 @@ export function useControls({ onError, onBeforeOpen } = {}) {
     return {
       p1: { ...state.p1 },
       p2: { ...state.p2 },
+      p3: { ...(state.p3 ?? DEFAULT_P3_CONTROL_BINDINGS) },
+      p4: { ...(state.p4 ?? DEFAULT_P4_CONTROL_BINDINGS) },
       p2Enabled: Boolean(state.p2Enabled),
     };
   }
@@ -182,10 +300,8 @@ export function useControls({ onError, onBeforeOpen } = {}) {
   function openControls(player = 1, { enableP2 = false } = {}) {
     onBeforeOpen?.();
     controlDraft.value = cloneState(controlBindings.value);
-    if (player === 2 && enableP2) {
-      controlDraft.value.p2Enabled = true;
-    }
-    activePlayer.value = player === 2 ? 2 : 1;
+    if (player === 2 && enableP2) controlDraft.value.p2Enabled = true;
+    activePlayer.value = Math.max(1, Math.min(4, Number(player) || 1));
     waitingForControl.value = null;
     controlErrorMessage.value = "";
     controlSaveStatus.value = "";
@@ -193,10 +309,9 @@ export function useControls({ onError, onBeforeOpen } = {}) {
   }
 
   function selectPlayerTab(player) {
-    if (player === 2 && !controlDraft.value.p2Enabled) {
-      controlDraft.value.p2Enabled = true;
-    }
-    activePlayer.value = player === 2 ? 2 : 1;
+    const n = Math.max(1, Math.min(4, Number(player) || 1));
+    if (n === 2 && !controlDraft.value.p2Enabled) controlDraft.value.p2Enabled = true;
+    activePlayer.value = n;
     waitingForControl.value = null;
     controlErrorMessage.value = "";
   }
@@ -238,27 +353,25 @@ export function useControls({ onError, onBeforeOpen } = {}) {
       return;
     }
 
-    const currentPlayerKey = activePlayer.value === 2 ? "p2" : "p1";
-    const currentMap = controlDraft.value[currentPlayerKey];
+    const currentPlayerKey = `p${activePlayer.value}`;
+    const currentMap = controlDraft.value[currentPlayerKey] || controlDraft.value.p1;
 
     const samePlayerConflict = CONTROL_ACTIONS.find(
-      ({ id }) =>
-        id !== waitingForControl.value && currentMap[id] === event.code,
+      ({ id }) => id !== waitingForControl.value && currentMap[id] === event.code,
     );
     if (samePlayerConflict) {
       controlErrorMessage.value = `${formatControlKey(event.code)} já está atribuída a ${samePlayerConflict.label} no Jogador ${activePlayer.value}.`;
       return;
     }
 
-    if (controlDraft.value.p2Enabled) {
-      const otherPlayerKey = activePlayer.value === 2 ? "p1" : "p2";
-      const otherPlayerNumber = activePlayer.value === 2 ? 1 : 2;
-      const otherMap = controlDraft.value[otherPlayerKey];
-      const crossPlayerConflict = CONTROL_ACTIONS.find(
-        ({ id }) => otherMap[id] === event.code,
-      );
-      if (crossPlayerConflict) {
-        controlErrorMessage.value = `${formatControlKey(event.code)} já está em uso no Jogador ${otherPlayerNumber} (${crossPlayerConflict.label}).`;
+    for (let n = 1; n <= 4; n++) {
+      if (n === activePlayer.value) continue;
+      if (n === 2 && !controlDraft.value.p2Enabled && activePlayer.value !== 2) continue;
+      const other = controlDraft.value[`p${n}`];
+      if (!other) continue;
+      const conflict = CONTROL_ACTIONS.find(({ id }) => other[id] === event.code);
+      if (conflict) {
+        controlErrorMessage.value = `${formatControlKey(event.code)} já está em uso no Jogador ${n} (${conflict.label}).`;
         return;
       }
     }
@@ -269,11 +382,14 @@ export function useControls({ onError, onBeforeOpen } = {}) {
   }
 
   function restoreDefaultControls() {
-    if (activePlayer.value === 2) {
-      controlDraft.value.p2 = { ...DEFAULT_P2_CONTROL_BINDINGS };
-    } else {
-      controlDraft.value.p1 = { ...DEFAULT_CONTROL_BINDINGS };
-    }
+    const defaults = {
+      1: DEFAULT_CONTROL_BINDINGS,
+      2: DEFAULT_P2_CONTROL_BINDINGS,
+      3: DEFAULT_P3_CONTROL_BINDINGS,
+      4: DEFAULT_P4_CONTROL_BINDINGS,
+    };
+    const key = `p${activePlayer.value}`;
+    controlDraft.value[key] = { ...(defaults[activePlayer.value] || DEFAULT_CONTROL_BINDINGS) };
     waitingForControl.value = null;
     controlErrorMessage.value = "";
     controlSaveStatus.value = "";
@@ -298,20 +414,11 @@ export function useControls({ onError, onBeforeOpen } = {}) {
   }
 
   function findActionByCode(code) {
-    const p1Action = CONTROL_ACTIONS.find(
-      ({ id }) => controlBindings.value.p1[id] === code,
-    );
-    if (p1Action) {
-      return { button: p1Action.id, player: 1 };
-    }
-    if (controlBindings.value.p2Enabled) {
-      const p2Action = CONTROL_ACTIONS.find(
-        ({ id }) => controlBindings.value.p2[id] === code,
-      );
-      if (p2Action) {
-        const res = { button: p2Action.id, player: 2 };
-        return res;
-      }
+    for (let n = 1; n <= 4; n++) {
+      const map = controlBindings.value[`p${n}`];
+      if (!map) continue;
+      const action = CONTROL_ACTIONS.find(({ id }) => map[id] === code);
+      if (action) return { button: action.id, player: n };
     }
     return null;
   }

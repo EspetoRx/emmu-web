@@ -58,9 +58,11 @@ async function restoreLibraryScroll() {
 }
 
 const {
-  errorToast,
+  errorToasts,
   showErrorToast,
   clearErrorToast,
+  dismissErrorToast,
+  setToastHovered,
   handleToastVisibilityChange,
 } = useToast();
 
@@ -378,14 +380,18 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="app-window" @keydown.esc="openMenu = null">
-    <ErrorToast :toast="errorToast" />
+    <ErrorToast
+      :toasts="errorToasts"
+      @dismiss="dismissErrorToast"
+      @hover-change="setToastHovered"
+    />
 
     <AppHeader :is-native-desktop="isNativeDesktop" :is-mobile-device="isMobileDevice" :page-title="pageTitle"
       :open-menu="openMenu" :has-active-game="Boolean(activeGame)" :games-count="games.length" @toggle-menu="toggleMenu"
       @close-menu="openMenu = null" @open-file-picker="openFilePicker" @return-to-library="returnToLibrary"
       @request-clear-library="requestClearLibrary" @open-controls="openControls(1)" />
 
-    <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig,.gba,.gb,.gbc,.gg,.sms,.ws,.wsc,.pce,.zip"
+    <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig,.gba,.gb,.gbc,.gg,.sms,.ws,.wsc,.pce,.z64,.n64,.v64,.zip"
       aria-label="Abrir arquivos de jogos" tabindex="-1" @change="addRom" />
 
     <Library v-if="!activeGame" v-model:search="librarySearch" v-model:format="libraryFormat" v-model:sort="librarySort"
@@ -400,7 +406,7 @@ onBeforeUnmount(() => {
     <Player v-else :active-game="activeGame" :frame-width="frameWidth" :frame-height="frameHeight" :has-core="hasCore" :is-playing="isPlaying"
       :is-saving-state="isSavingState" :is-restarting="isRestarting" :is-mobile-device="isMobileDevice"
       :audio-volume="audioVolume" :show-audio-controls="showAudioControls" :p2-enabled="controlBindings.p2Enabled"
-      @return-to-library="returnToLibrary" @restart="restartGame" @open-p1-controls="openControls(1)"
+      @return-to-library="returnToLibrary" @restart="restartGame" @open-p1-controls="(p) => openControls(typeof p === 'number' ? p : 1)"
       @open-p2-controls="openControls(2, { enableP2: true })"
       @toggle-audio-controls="showAudioControls = !showAudioControls" @set-audio-volume="handleSetAudioVolume"
       @save-state="saveGameState" @set-button="setButton" @register-stage="gameStageRef = $event"

@@ -15,8 +15,9 @@ Interface Vue 3 + Vite 6 compartilhada pelo navegador e pelo aplicativo Tauri (d
 | Persistência | `src/stores/libraryStore.js` (IndexedDB) |
 | Configuração de teclado | `src/composables/useControls.js`, `src/composables/useShortcuts.js` |
 | Mensagens ao usuário | `src/composables/useToast.js`, `src/components/ErrorToast.vue` |
+| Analógico N64 | `src/composables/useControls.js`, `src/components/ControlsDialog.vue`, `src/components/Player.vue` |
 
-No navegador, `createEmulator()` cria um `EmulationWorkerClient` e carrega um dos seis cores WASM. Sob Tauri, cria `MesenTauriClient` e usa `invoke("mesen_*")` + o protocolo `emmu-frame://`.
+No navegador, `createEmulator()` cria um `EmulationWorkerClient` e carrega um dos dez cores WASM. Sob Tauri, cria `MesenTauriClient` e usa `invoke("mesen_*")` + o protocolo `emmu-frame://`. N64 é a exceção: usa o worker WASM também no desktop, pois o Mesen não implementa esse console.
 
 ## Cores e formatos
 
@@ -28,8 +29,9 @@ No navegador, `createEmulator()` cria um `EmulationWorkerClient` e carrega um do
 | GBC | `.gbc` | `emmu_gbc` → oxGBC | Mesen | `EMMUGBC1` / `.mss` |
 | GB | `.gb` | `emmu_gb` → oxGBC (DMG) | Mesen | `EMMUGMB1` / `.mss` |
 | PCE | `.pce` | `emmu_pce` → JGenesis | Mesen | `EMMUPCE1` / `.mss` |
+| N64 | `.z64`, `.n64`, `.v64` | `emmu_n64` → N64Wasm | WASM no WebView (sem Mesen) | gzip `/savestate.gz` |
 
-O seletor de arquivos aceita `.nes,.sfc,.smc,.fig,.gba,.gb,.gbc,.pce`. Nenhuma ROM é incluída no repositório.
+O seletor de arquivos aceita `.nes,.sfc,.smc,.fig,.gba,.gb,.gbc,.gg,.sms,.ws,.wsc,.pce,.z64,.n64,.v64`. Nenhuma ROM é incluída no repositório.
 
 ## Recursos da interface
 
@@ -52,17 +54,17 @@ O seletor de arquivos aceita `.nes,.sfc,.smc,.fig,.gba,.gb,.gbc,.pce`. Nenhuma R
 - PCE suporta apenas HuCard; CD-ROM e System Cards não são suportados.
 - O core GB/GBC usa apenas o jogador 1; GBA também.
 - Não há seletor de filtro de vídeo nesta UI.
-- O diretório `public/` está vazio; `src/wasm/` é gerado e ignorado pelo git, embora `dist/` já contenha os binários em um build pronto.
+- `public/wasm/n64/` contém os assets runtime do N64Wasm (`n64wasm.js`, `n64wasm.wasm`, `assets.zip`), copiados de `crates/emmu-n64/vendor/`. `src/wasm/` é gerado e ignorado pelo git.
 
 ## Árvore de arquivos
 
 ```text
 platforms/web/ui/
 ├── index.html                 # lang pt-BR, viewport-fit=cover, tema #111116
-├── package.json               # emmu-ui 0.1.0, scripts dev/build/wasm/desktop/mobile
+├── package.json               # emmu-ui 0.2.0, scripts dev/build/wasm/desktop/mobile
 ├── package-lock.json
 ├── vite.config.js             # plugin-vue, porta 5173 com strictPort
-├── public/                    # assets estáticos (vazio)
+├── public/wasm/n64/           # runtime N64Wasm servido em /wasm/n64/
 ├── dist/                      # saída de produção (gerada)
 └── src/
     ├── App.vue                # shell, diálogos, atalhos, autosave, geração de miniaturas

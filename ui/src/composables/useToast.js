@@ -1,48 +1,120 @@
 import { ref } from "vue";
 
-const ERROR_TOAST_DURATION_MS = 3000;
+export const ERROR_TOAST_DURATION_MS = 10000;
 
 export function useToast() {
-  const errorToast = ref(null);
-  let errorToastTimeoutId = 0;
-  let errorToastExpiresAt = 0;
+  const errorToasts = ref([]);
   let errorToastSequence = 0;
+  // id -> { timeoutId, remaining, startedAt }
+  const toastTimers = new Map();
 
-  function scheduleErrorToastExpiry(delay) {
-    if (errorToastTimeoutId) clearTimeout(errorToastTimeoutId);
-    errorToastTimeoutId = window.setTimeout(() => {
-      errorToast.value = null;
-      errorToastExpiresAt = 0;
-      errorToastTimeoutId = 0;
-    }, delay);
+  function findToast(id) {
+    return errorToasts.value.find((toast) => toast.id === id);
   }
 
-  function showErrorToast(message, source) {
-    errorToastExpiresAt = Date.now() + ERROR_TOAST_DURATION_MS;
-    errorToast.value = { message, source, id: ++errorToastSequence };
-    scheduleErrorToastExpiry(ERROR_TOAST_DURATION_MS);
-  }
-
-  function clearErrorToast(source) {
-    if (source && errorToast.value?.source !== source) return;
-    if (errorToastTimeoutId) clearTimeout(errorToastTimeoutId);
-    errorToastTimeoutId = 0;
-    errorToastExpiresAt = 0;
-    errorToast.value = null;
-  }
-
-  function handleToastVisibilityChange() {
-    if (document.visibilityState === "visible" && errorToast.value) {
-      const remaining = errorToastExpiresAt - Date.now();
-      if (remaining <= 0) clearErrorToast();
-      else scheduleErrorToastExpiry(remaining);
+  function clearToastTimer(id) {
+    const state = toastTimers.get(id);
+    if (state?.timeoutId) {
+      window.clearTimeout(state.timeoutId);
+      state.timeoutId = 0;
     }
   }
 
+  function dismissErrorToast(id) {
+    clearToastTimer(id);
+    toastTimers.delete(id);
+    errorToasts.value = errorToasts.value.filter((toast) => toast.id !== id);
+  }
+
+  function scheduleToastExpiry(toast) {
+    clearToastTimer(toast.id);
+    if (toast.paused) return;
+    const state = toastTimers.get(toast.id);
+    if (!state) return;
+    state.startedAt = Date.now();
+    state.timeoutId = window.setTimeout(() => {
+      dismissErrorToast(toast.id);
+    }, state.remaining);
+  }
+
+  function showErrorToast(message, source) {
+    // Autosave falha a cada 5s: sem dedupe isso enche a fila de avisos idênticos.
+    const duplicate = errorToasts.value.find(
+      (toast) => toast.message === message && toast.source === source,
+    );
+    if (duplicate) {
+      const state = toastTimers.get(duplicate.id);
+      if (state) {
+        state.remaining = ERROR_TOAST_DURATION_MS;
+        scheduleToastExpiry(duplicate);
+      }
+      return;
+    }
+    const id = ++errorToastSequence;
+    const toast = {
+      id,
+      message,
+      source,
+      paused: false,
+      hovered: false,
+    };
+    toastTimers.set(id, {
+      timeoutId: 0,
+      remaining: ERROR_TOAST_DURATION_MS,
+      startedAt: Date.now(),
+    });
+    errorToasts.value = [...errorToasts.value, toast];
+    scheduleToastExpiry(toast);
+  }
+
+  function pauseErrorToast(id) {
+    const toast = findToast(id);
+    const state = toastTimers.get(id);
+    if (!toast || !state || toast.paused) return;
+    state.remaining = Math.max(0, state.remaining - (Date.now() - state.startedAt));
+    clearToastTimer(id);
+    toast.paused = true;
+  }
+
+  function resumeErrorToast(id) {
+    const toast = findToast(id);
+    if (!toast || !toast.paused) return;
+    if (toast.hovered || document.visibilityState === "hidden") return;
+    toast.paused = false;
+    scheduleToastExpiry(toast);
+  }
+
+  function setToastHovered(id, hovered) {
+    const toast = findToast(id);
+    if (!toast) return;
+    toast.hovered = hovered;
+    if (hovered) pauseErrorToast(id);
+    else resumeErrorToast(id);
+  }
+
+  function clearErrorToast(source) {
+    const targets = source
+      ? errorToasts.value.filter((toast) => toast.source === source)
+      : [...errorToasts.value];
+    for (const toast of targets) dismissErrorToast(toast.id);
+  }
+
+  function handleToastVisibilityChange() {
+    if (document.visibilityState === "hidden") {
+      for (const toast of [...errorToasts.value]) pauseErrorToast(toast.id);
+      return;
+    }
+    for (const toast of [...errorToasts.value]) resumeErrorToast(toast.id);
+  }
+
   return {
-    errorToast,
+    errorToasts,
     showErrorToast,
     clearErrorToast,
+    dismissErrorToast,
+    pauseErrorToast,
+    resumeErrorToast,
+    setToastHovered,
     handleToastVisibilityChange,
   };
 }

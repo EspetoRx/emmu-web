@@ -2,6 +2,13 @@
 import { computed } from "vue";
 import { CONTROL_ACTIONS, formatControlKey } from "../composables/useControls.js";
 
+const ANALOG_ACTION_IDS = new Set([
+  "AnalogUp",
+  "AnalogDown",
+  "AnalogLeft",
+  "AnalogRight",
+]);
+
 const props = defineProps({
   system: {
     type: String,
@@ -46,12 +53,13 @@ const systemLabel = computed(() => props.system.toUpperCase());
 const isSinglePlayerSystem = computed(() =>
   ["GG", "WS"].includes(systemLabel.value),
 );
-const activeBindings = computed(() =>
-  props.activePlayer === 2 && !isSinglePlayerSystem.value
-    ? props.draft.p2
-    : props.draft.p1,
-);
-const visibleActions = computed(() => {
+const isN64 = computed(() => systemLabel.value === "N64");
+const activeBindings = computed(() => {
+  if (isSinglePlayerSystem.value) return props.draft.p1;
+  const key = `p${props.activePlayer}`;
+  return props.draft[key] || props.draft.p1;
+});
+const visibleActionsForSystem = computed(() => {
   if (systemLabel.value === "WS") {
     // O WonderSwan tem dois direcionais de 4 vias, A/B e Start. O hardware não
     // tem Select; X/Y/L/R são apenas os nomes dos bindings do segundo pad.
@@ -78,13 +86,39 @@ const visibleActions = computed(() => {
   }
   if (["GBC", "GB"].includes(systemLabel.value)) {
     return CONTROL_ACTIONS.filter(
-      ({ id }) => !["X", "Y", "L", "R", "U", "D"].includes(id),
+      ({ id }) => !["X", "Y", "L", "R", "Z", "CUp", "CDown", "CLeft", "CRight"].includes(id),
     );
   }
   if (systemLabel.value === "GBA") {
-    return CONTROL_ACTIONS.filter(({ id }) => id !== "X" && id !== "Y");
+    return CONTROL_ACTIONS.filter(({ id }) => !["X", "Y", "Z", "CUp", "CDown", "CLeft", "CRight"].includes(id));
   }
-  return CONTROL_ACTIONS;
+  if (systemLabel.value === "N64") {
+    return CONTROL_ACTIONS.filter(({ id }) => !["Select", "X", "Y"].includes(id));
+  }
+  if (systemLabel.value === "PCE") {
+    return CONTROL_ACTIONS.filter(({ id }) => !["X", "Y", "L", "R", "Z", "CUp", "CDown", "CLeft", "CRight"].includes(id));
+  }
+  if (systemLabel.value === "NES") {
+    return CONTROL_ACTIONS.filter(({ id }) => !["X", "Y", "L", "R", "Z", "CUp", "CDown", "CLeft", "CRight"].includes(id));
+  }
+  if (systemLabel.value === "SMS") {
+    return CONTROL_ACTIONS.filter(({ id }) => !["X", "Y", "L", "R", "Select", "Z", "CUp", "CDown", "CLeft", "CRight"].includes(id))
+      .map((action) => {
+        if (action.id === "A") return { ...action, label: "1" };
+        if (action.id === "B") return { ...action, label: "2" };
+        return action;
+      });
+  }
+  return CONTROL_ACTIONS.filter(({ id }) => !["Z", "CUp", "CDown", "CLeft", "CRight"].includes(id));
+});
+
+// O analógico existe apenas no controle de N64. Mantemos as ações no modelo de
+// bindings (para não quebrar saves), mas só as exibimos no diálogo do N64.
+const visibleActions = computed(() => {
+  if (isN64.value) return visibleActionsForSystem.value;
+  return visibleActionsForSystem.value.filter(
+    ({ id }) => !ANALOG_ACTION_IDS.has(id),
+  );
 });
 </script>
 
@@ -102,19 +136,27 @@ const visibleActions = computed(() => {
       </div>
 
       <div class="player-tabs-row" role="tablist" aria-label="Selecionar manete">
-        <button type="button" role="tab" class="secondary-button" :aria-selected="activePlayer === 1"
-          @click="emit('select-player', 1)">
-          P1 · Jogador 1
-        </button>
-        <template v-if="!isSinglePlayerSystem">
-          <button type="button" role="tab" class="secondary-button" :aria-selected="activePlayer === 2"
-            @click="emit('select-player', 2)">
-            P2 · Jogador 2 {{ draft.p2Enabled ? "(Conectada)" : "(Inserir)" }}
+        <template v-if="isN64">
+          <button v-for="n in 4" :key="n" type="button" role="tab" class="secondary-button" :aria-selected="activePlayer === n"
+            @click="emit('select-player', n)">
+            P{{ n }} · Jogador {{ n }}
           </button>
-          <label class="p2-enable-toggle">
-            <input type="checkbox" :checked="draft.p2Enabled" @change="emit('set-p2-enabled', $event.target.checked)" />
-            Manete P2 habilitada
-          </label>
+        </template>
+        <template v-else>
+          <button type="button" role="tab" class="secondary-button" :aria-selected="activePlayer === 1"
+            @click="emit('select-player', 1)">
+            P1 · Jogador 1
+          </button>
+          <template v-if="!isSinglePlayerSystem">
+            <button type="button" role="tab" class="secondary-button" :aria-selected="activePlayer === 2"
+              @click="emit('select-player', 2)">
+              P2 · Jogador 2 {{ draft.p2Enabled ? "(Conectada)" : "(Inserir)" }}
+            </button>
+            <label class="p2-enable-toggle">
+              <input type="checkbox" :checked="draft.p2Enabled" @change="emit('set-p2-enabled', $event.target.checked)" />
+              Manete P2 habilitada
+            </label>
+          </template>
         </template>
       </div>
 

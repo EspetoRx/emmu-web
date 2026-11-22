@@ -1,5 +1,48 @@
-const MAX_QUEUE_SECONDS = 0.25;
-const START_QUEUE_SECONDS = 0.035;
+const MAX_QUEUE_SECONDS = 0.4;
+const START_QUEUE_SECONDS = 0.08;
+
+// Windowed-sinc resampling. Linear interpolation of 32 kHz NDS audio into a
+// 44.1/48 kHz AudioContext leaves strong spectral images that are audible as
+// hiss, especially on quiet tracks. A 64-tap Lanczos kernel low-passes those
+// images before the rate conversion.
+const TAPS = 64;
+const HALF_TAPS = TAPS / 2;
+const PHASES = 256;
+
+function sinc(x) {
+  if (Math.abs(x) < 1e-9) return 1;
+  const y = Math.PI * x;
+  return Math.sin(y) / y;
+}
+
+function buildKernel(inputRate, outputRate) {
+  const ratio = inputRate / outputRate;
+  const cutoff = Math.min(0.5, 0.5 / ratio);
+  const scale = 2 * cutoff;
+  const windowWidth = HALF_TAPS;
+  const kernel = new Float32Array(PHASES * TAPS);
+
+  for (let phase = 0; phase < PHASES; phase += 1) {
+    const t = phase / PHASES;
+    let sum = 0;
+    for (let tap = 0; tap < TAPS; tap += 1) {
+      const offset = tap - (HALF_TAPS - 1);
+      const x = scale * (t - offset);
+      let value = 0;
+      if (Math.abs(x) < windowWidth) {
+        value = scale * sinc(x) * sinc(x / windowWidth);
+      }
+      kernel[phase * TAPS + tap] = value;
+      sum += value;
+    }
+    if (sum !== 0) {
+      for (let tap = 0; tap < TAPS; tap += 1) {
+        kernel[phase * TAPS + tap] /= sum;
+      }
+    }
+  }
+  return kernel;
+}
 
 class EmmuAudioProcessor extends AudioWorkletProcessor {
   constructor() {
@@ -11,9 +54,25 @@ class EmmuAudioProcessor extends AudioWorkletProcessor {
     this.readFrame = 0;
     this.writeFrame = 0;
     this.queuedFrames = 0;
+    this.consumedFrames = 0;
     this.phase = 0;
     this.started = false;
+    this.kernel = null;
     this.port.onmessage = ({ data }) => this.receive(data);
+  }
+
+  reconfigure(sampleRate, channels) {
+    this.inputRate = sampleRate;
+    this.channels = channels;
+    this.capacity = Math.ceil(sampleRate * MAX_QUEUE_SECONDS) + TAPS + 4;
+    this.buffer = new Float32Array(this.capacity * channels);
+    this.readFrame = 0;
+    this.writeFrame = 0;
+    this.queuedFrames = 0;
+    this.consumedFrames = 0;
+    this.phase = 0;
+    this.started = false;
+    this.kernel = buildKernel(sampleRate, sampleRateGlobal());
   }
 
   receive(data) {
@@ -21,6 +80,7 @@ class EmmuAudioProcessor extends AudioWorkletProcessor {
       this.readFrame = 0;
       this.writeFrame = 0;
       this.queuedFrames = 0;
+      this.consumedFrames = 0;
       this.phase = 0;
       this.started = false;
       return;
@@ -41,15 +101,7 @@ class EmmuAudioProcessor extends AudioWorkletProcessor {
     }
 
     if (sampleRate !== this.inputRate || channels !== this.channels) {
-      this.inputRate = sampleRate;
-      this.channels = channels;
-      this.capacity = Math.ceil(sampleRate * MAX_QUEUE_SECONDS) + 2;
-      this.buffer = new Float32Array(this.capacity * channels);
-      this.readFrame = 0;
-      this.writeFrame = 0;
-      this.queuedFrames = 0;
-      this.phase = 0;
-      this.started = false;
+      this.reconfigure(sampleRate, channels);
     }
 
     const frameCount = samples.length / channels;
@@ -73,6 +125,29 @@ class EmmuAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
+  sampleAt(offset, channel) {
+    let limited = offset;
+    if (limited < -this.consumedFrames) limited = -this.consumedFrames;
+    const index = (this.readFrame + limited + this.capacity) % this.capacity;
+    return this.buffer[index * this.channels + channel];
+  }
+
+  interpolate(channel, phaseIndex, phase) {
+    if (!this.kernel || this.queuedFrames < TAPS + 2) {
+      const first = this.sampleAt(0, channel);
+      const second = this.sampleAt(1, channel);
+      return first + (second - first) * phase;
+    }
+
+    let value = 0;
+    const base = phaseIndex * TAPS;
+    for (let tap = 0; tap < TAPS; tap += 1) {
+      const offset = tap - (HALF_TAPS - 1);
+      value += this.sampleAt(offset, channel) * this.kernel[base + tap];
+    }
+    return value;
+  }
+
   process(_inputs, outputs) {
     const output = outputs[0];
     if (!output?.length) return true;
@@ -81,6 +156,7 @@ class EmmuAudioProcessor extends AudioWorkletProcessor {
     if (!this.buffer || this.queuedFrames < 2) {
       if (this.queuedFrames === 1) this.queuedFrames = 0;
       this.readFrame = this.writeFrame;
+      this.consumedFrames = 0;
       this.phase = 0;
       this.started = false;
       return true;
@@ -96,25 +172,22 @@ class EmmuAudioProcessor extends AudioWorkletProcessor {
     for (let index = 0; index < left.length; index += 1) {
       if (this.queuedFrames < 2) {
         this.readFrame = this.writeFrame;
+        this.consumedFrames = 0;
         this.queuedFrames = 0;
         this.phase = 0;
         this.started = false;
         break;
       }
 
-      const nextFrame = (this.readFrame + 1) % this.capacity;
-      const offset = this.readFrame * this.channels;
-      const nextOffset = nextFrame * this.channels;
-      const leftSample = this.buffer[offset];
-      const nextLeftSample = this.buffer[nextOffset];
-      left[index] = leftSample + (nextLeftSample - leftSample) * this.phase;
+      const phaseIndex = Math.min(
+        PHASES - 1,
+        Math.floor(this.phase * PHASES),
+      );
+      left[index] = this.interpolate(0, phaseIndex, this.phase);
       if (right !== left) {
-        const rightSample =
-          this.channels === 1 ? leftSample : this.buffer[offset + 1];
-        const nextRightSample =
-          this.channels === 1 ? nextLeftSample : this.buffer[nextOffset + 1];
-        right[index] =
-          rightSample + (nextRightSample - rightSample) * this.phase;
+        right[index] = this.channels === 1
+          ? left[index]
+          : this.interpolate(1, phaseIndex, this.phase);
       }
 
       this.phase += step;
@@ -125,11 +198,16 @@ class EmmuAudioProcessor extends AudioWorkletProcessor {
       if (consumedFrames > 0) {
         this.readFrame = (this.readFrame + consumedFrames) % this.capacity;
         this.queuedFrames -= consumedFrames;
+        this.consumedFrames += consumedFrames;
         this.phase -= consumedFrames;
       }
     }
     return true;
   }
+}
+
+function sampleRateGlobal() {
+  return sampleRate;
 }
 
 registerProcessor("emmu-audio", EmmuAudioProcessor);

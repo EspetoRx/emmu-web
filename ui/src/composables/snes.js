@@ -1,4 +1,6 @@
 /** emmu/platforms/web/ui/src/composables/snes.js */
+import { createPspAdapter } from "../wasm/psp/adapter.js";
+
 function isTauriDesktop() {
   return (
     typeof window !== "undefined" &&
@@ -261,12 +263,33 @@ export async function createEmulator(romBytes, format) {
                   ? "N64"
                   : format === "NDS"
                     ? "NDS"
-                    : "SNES";
+                    : format === "PSP"
+                      ? "PSP"
+                      : "SNES";
 
-  if (isTauriDesktop() && system !== "N64" && system !== "NDS") {
+  if (system === "PSP") {
+    // PPSSPP é uma aplicação Emscripten com DOM/WebGL2/pthreads: não roda no
+    // snes.worker.js e o Mesen não implementa PSP. Vai na main thread, igual no
+    // web e no desktop.
+    const emulator = createPspAdapter(romBytes);
+    try {
+      await emulator.initialize();
+      return emulator;
+    } catch (error) {
+      emulator.dispose();
+      throw error;
+    }
+  }
+
+  if (
+    isTauriDesktop() &&
+    system !== "N64" &&
+    system !== "NDS" &&
+    system !== "PSP"
+  ) {
     // No desktop, a maioria dos consoles roda no Mesen, com SDL para áudio e
-    // save states .mss. N64 e NDS usam o core WASM no WebView (Mesen não suporta
-    // nenhum dos dois).
+    // save states .mss. N64, NDS e PSP usam WASM no WebView (Mesen não suporta
+    // nenhum dos três).
     const romCopy = new Uint8Array(romBytes);
     const screenSize = await tauriInvoke("mesen_init_rom", {
       romBytes: Array.from(romCopy),

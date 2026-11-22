@@ -74,9 +74,13 @@ const isMasterSystem = computed(() => props.activeGame.format === "SMS");
 const isWonderSwan = computed(() => props.activeGame.format === "WS");
 const isN64 = computed(() => props.activeGame.format === "N64");
 const isNds = computed(() => props.activeGame.format === "NDS");
+const isPsp = computed(() => props.activeGame.format === "PSP");
 const isHandheld = computed(() => isGameBoy.value || isGameGear.value);
-// WonderSwan e NDS são portáteis e não têm P2. N64 tem 4 jogadores, tratado separadamente.
-const isSinglePlayer = computed(() => isHandheld.value || isWonderSwan.value || isNds.value);
+// WonderSwan, NDS e PSP são portáteis e não têm P2. N64 tem 4 jogadores,
+// tratado separadamente. O PSP também tem analógico digital (4 direções).
+const isSinglePlayer = computed(
+  () => isHandheld.value || isWonderSwan.value || isNds.value || isPsp.value,
+);
 
 // Os controles de toque são sempre do jogador 1. O quarto argumento carrega o
 // PointerEvent para `preventDefault()` (evita scroll/zoom e foco preso no
@@ -263,7 +267,7 @@ onBeforeUnmount(() => {
 
     <div ref="gameStageRef" class="game-stage">
       <canvas ref="canvasRef" class="game-canvas"
-        :class="{ 'nes-canvas': activeGame.format === 'NES' || isMasterSystem, 'gba-canvas': isGba, 'gbc-canvas': isHandheld, 'ws-canvas': isWonderSwan, 'pce-canvas': isPce, 'n64-canvas': isN64, 'nds-canvas': isNds }" :width="frameWidth"
+        :class="{ 'nes-canvas': activeGame.format === 'NES' || isMasterSystem, 'gba-canvas': isGba, 'gbc-canvas': isHandheld, 'ws-canvas': isWonderSwan, 'pce-canvas': isPce, 'n64-canvas': isN64, 'nds-canvas': isNds, 'psp-canvas': isPsp }" :width="frameWidth"
         :height="frameHeight" :aria-label="isNds ? 'Telas do Nintendo DS (toque na tela inferior)' : 'Tela do jogo'" tabindex="0" @contextmenu.prevent
         @pointerdown="handleNdsPointerDown" @pointermove="handleNdsPointerMove" @pointerup="handleNdsPointerEnd" @pointercancel="handleNdsPointerEnd"></canvas>
       <button v-if="isFullscreen" class="fullscreen-exit-button" aria-label="Sair da tela cheia"
@@ -271,7 +275,7 @@ onBeforeUnmount(() => {
         Sair da tela cheia
       </button>
       <div v-if="isMobileDevice" class="touch-controls"
-        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isN64 ? 'Nintendo 64' : isNds ? 'Nintendo DS' : isGba ? 'GBA' : isGameGear ? 'Game Gear' : isMasterSystem ? 'Master System' : isWonderSwan ? 'WonderSwan' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
+        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isN64 ? 'Nintendo 64' : isNds ? 'Nintendo DS' : isPsp ? 'PSP' : isGba ? 'GBA' : isGameGear ? 'Game Gear' : isMasterSystem ? 'Master System' : isWonderSwan ? 'WonderSwan' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
         <div class="touch-dpad">
           <button class="touch-button dpad-up" aria-label="Cima" @pointerdown="pressButton('Up', true, $event)"
             @pointerup="pressButton('Up', false, $event)"
@@ -327,7 +331,7 @@ onBeforeUnmount(() => {
             Y→
           </button>
         </div>
-        <div v-if="isN64" class="touch-dpad n64-analog-pad" aria-label="Analógico do Nintendo 64">
+        <div v-if="isN64 || isPsp" class="touch-dpad n64-analog-pad" :aria-label="isPsp ? 'Analógico do PSP' : 'Analógico do Nintendo 64'">
           <button class="touch-button dpad-up" aria-label="Analógico: cima" @pointerdown="pressButton('AnalogUp', true, $event)"
             @pointerup="pressButton('AnalogUp', false, $event)"
             @pointercancel="pressButton('AnalogUp', false, $event)"
@@ -353,9 +357,9 @@ onBeforeUnmount(() => {
             A→
           </button>
         </div>
-        <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba, 'gbc-action-pad': isHandheld, 'n64-action-pad': isN64, 'nds-action-pad': isNds }">
-          <button v-if="isN64" class="touch-button touch-shoulder" aria-label="L" @pointerdown="pressButton('L', true, $event)" @pointerup="pressButton('L', false, $event)" @pointercancel="pressButton('L', false, $event)" @pointerleave="pressButton('L', false, $event)">L</button>
-          <button v-if="isN64" class="touch-button touch-shoulder" aria-label="R" @pointerdown="pressButton('R', true, $event)" @pointerup="pressButton('R', false, $event)" @pointercancel="pressButton('R', false, $event)" @pointerleave="pressButton('R', false, $event)">R</button>
+        <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba, 'gbc-action-pad': isHandheld, 'n64-action-pad': isN64, 'nds-action-pad': isNds, 'psp-action-pad': isPsp }">
+          <button v-if="isN64 || isPsp" class="touch-button touch-shoulder" aria-label="L" @pointerdown="pressButton('L', true, $event)" @pointerup="pressButton('L', false, $event)" @pointercancel="pressButton('L', false, $event)" @pointerleave="pressButton('L', false, $event)">L</button>
+          <button v-if="isN64 || isPsp" class="touch-button touch-shoulder" aria-label="R" @pointerdown="pressButton('R', true, $event)" @pointerup="pressButton('R', false, $event)" @pointercancel="pressButton('R', false, $event)" @pointerleave="pressButton('R', false, $event)">R</button>
           <button v-if="isN64" class="touch-button" aria-label="Z" @pointerdown="pressButton('Z', true, $event)" @pointerup="pressButton('Z', false, $event)" @pointercancel="pressButton('Z', false, $event)" @pointerleave="pressButton('Z', false, $event)">Z</button>
           <button v-if="isN64" class="touch-button" aria-label="C Up" @pointerdown="pressButton('CUp', true, $event)" @pointerup="pressButton('CUp', false, $event)" @pointercancel="pressButton('CUp', false, $event)" @pointerleave="pressButton('CUp', false, $event)">C↑</button>
           <button v-if="isN64" class="touch-button" aria-label="C Left" @pointerdown="pressButton('CLeft', true, $event)" @pointerup="pressButton('CLeft', false, $event)" @pointercancel="pressButton('CLeft', false, $event)" @pointerleave="pressButton('CLeft', false, $event)">C←</button>
@@ -437,8 +441,17 @@ onBeforeUnmount(() => {
   font-size: 11px;
 }
 
-/* Segundo direcional do WonderSwan e analógico do N64: compactos para caber
+/* Analógico do N64/PSP e quatro botões de ação do PSP: compactos para caber
    ao lado do direcional principal. */
+.psp-action-pad {
+  grid-template: repeat(3, 40px) / repeat(2, 40px);
+  gap: 6px;
+}
+
+.psp-action-pad .touch-shoulder {
+  font-size: 11px;
+}
+
 .ws-second-pad,
 .n64-analog-pad {
   grid-template: repeat(2, 30px) / repeat(3, 30px);

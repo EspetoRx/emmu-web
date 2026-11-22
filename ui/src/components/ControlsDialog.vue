@@ -51,9 +51,10 @@ const emit = defineEmits([
 
 const systemLabel = computed(() => props.system.toUpperCase());
 const isSinglePlayerSystem = computed(() =>
-  ["GG", "WS", "NDS"].includes(systemLabel.value),
+  ["GG", "WS", "NDS", "PSP"].includes(systemLabel.value),
 );
 const isN64 = computed(() => systemLabel.value === "N64");
+const isPsp = computed(() => systemLabel.value === "PSP");
 const activeBindings = computed(() => {
   if (isSinglePlayerSystem.value) return props.draft.p1;
   const key = `p${props.activePlayer}`;
@@ -95,6 +96,16 @@ const visibleActionsForSystem = computed(() => {
   if (systemLabel.value === "N64") {
     return CONTROL_ACTIONS.filter(({ id }) => !["Select", "X", "Y"].includes(id));
   }
+  if (isPsp.value) {
+    // O PSP tem D-pad, analógico, quatro botões de face, L/R, Select e Start.
+    // Z e C-buttons são exclusivos do N64.
+    return CONTROL_ACTIONS.filter(
+      ({ id }) => !["Z", "CUp", "CDown", "CLeft", "CRight"].includes(id),
+    ).map((action) => {
+      const labels = { A: "× (Cross)", B: "○ (Circle)", X: "□ (Square)", Y: "△ (Triangle)" };
+      return labels[action.id] ? { ...action, label: labels[action.id] } : action;
+    });
+  }
   if (systemLabel.value === "PCE") {
     return CONTROL_ACTIONS.filter(({ id }) => !["X", "Y", "L", "R", "Z", "CUp", "CDown", "CLeft", "CRight"].includes(id));
   }
@@ -112,10 +123,10 @@ const visibleActionsForSystem = computed(() => {
   return CONTROL_ACTIONS.filter(({ id }) => !["Z", "CUp", "CDown", "CLeft", "CRight"].includes(id));
 });
 
-// O analógico existe apenas no controle de N64. Mantemos as ações no modelo de
-// bindings (para não quebrar saves), mas só as exibimos no diálogo do N64.
+// O analógico existe no controle de N64 e no PSP. Mantemos as ações no modelo
+// de bindings (para não quebrar saves), mas só exibimos nesses consoles.
 const visibleActions = computed(() => {
-  if (isN64.value) return visibleActionsForSystem.value;
+  if (isN64.value || isPsp.value) return visibleActionsForSystem.value;
   return visibleActionsForSystem.value.filter(
     ({ id }) => !ANALOG_ACTION_IDS.has(id),
   );

@@ -20,6 +20,8 @@ const N64_FRAME_WIDTH = 320;
 const N64_FRAME_HEIGHT = 240;
 const NDS_FRAME_WIDTH = 256;
 const NDS_FRAME_HEIGHT = 384;
+const PSP_FRAME_WIDTH = 480;
+const PSP_FRAME_HEIGHT = 272;
 const FRAME_INTERVAL = 1000 / 60;
 const CHECKPOINT_INTERVAL = 5000;
 
@@ -139,6 +141,7 @@ export function useEmulator({
     if (format === "GBA") return GBA_FRAME_WIDTH;
     if (format === "N64") return N64_FRAME_WIDTH;
     if (format === "NDS") return NDS_FRAME_WIDTH;
+    if (format === "PSP") return PSP_FRAME_WIDTH;
     if (format === "SMS") return SMS_FRAME_WIDTH;
     if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_WIDTH;
     if (isWonderSwanFormat(format)) return WS_FRAME_WIDTH;
@@ -151,6 +154,7 @@ export function useEmulator({
     if (format === "GBA") return GBA_FRAME_HEIGHT;
     if (format === "N64") return N64_FRAME_HEIGHT;
     if (format === "NDS") return NDS_FRAME_HEIGHT;
+    if (format === "PSP") return PSP_FRAME_HEIGHT;
     if (format === "SMS") return SMS_FRAME_HEIGHT;
     if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_HEIGHT;
     if (isWonderSwanFormat(format)) return WS_FRAME_HEIGHT;

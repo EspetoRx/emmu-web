@@ -23,8 +23,9 @@ export const CONTROL_ACTIONS = [
   { id: "CDown", label: "C ↓" },
   { id: "CLeft", label: "C ←" },
   { id: "CRight", label: "C →" },
-  // O controle do N64 tem um único analógico. O bridge converte essas ações
-  // em axisX/axisY enviados ao core por _neil_send_mobile_controls().
+  // N64 e PSP têm um analógico de quatro direções. No N64 o bridge converte
+  // em axisX/axisY (_neil_send_mobile_controls); no PSP viram botões 16..19
+  // do RetroArch via simulate_input.
   { id: "AnalogUp", label: "Analógico ↑" },
   { id: "AnalogDown", label: "Analógico ↓" },
   { id: "AnalogLeft", label: "Analógico ←" },

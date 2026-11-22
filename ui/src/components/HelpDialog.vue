@@ -40,7 +40,8 @@ const emit = defineEmits(["close"]);
       <p>No WonderSwan, as setas controlam o primeiro direcional e S/A/Q/W o segundo (↑/↓/←/→); Z/X são A/B e Enter é Start. Não há Select nem jogador 2.</p>
       <p>No Nintendo DS, use A/B/X/Y, L/R, Start e Select. Toque ou clique na metade inferior da tela para usar o painel sensível; a tela superior é apenas vídeo. O console tem um único jogador.</p>
       <p>No Nintendo 64, use o menu do manete para escolher o jogador (1–4). A/B, Start, Z, L/R e C-buttons são mapeáveis, assim como as quatro direções do analógico (Analógico ↑/↓/←/→). Por limitação do N64Wasm, o analógico e os demais botões são enviados ao core pelo jogador 1.</p>
-      <p class="supported-formats">Formatos aceitos pela interface: .nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .sms, .ws, .wsc, .pce, .nds, .z64, .n64, .v64 e arquivos .zip contendo uma ou mais ROMs.</p>
+      <p>No PSP, A/B/X/Y correspondem a ×/○/□/△, com L/R, Select, Start e analógico digital (Analógico ↑/↓/←/→). O console tem um único jogador. O PPSSPP usa WebGL2 e pthreads, então o navegador precisa de isolamento cross-origin (COOP/COEP); o áudio é gerenciado pelo próprio core.</p>
+      <p class="supported-formats">Formatos aceitos pela interface: .nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .sms, .ws, .wsc, .pce, .nds, .z64, .n64, .v64, .psp, .iso, .cso, .chd, .pbp, .elf, .prx e arquivos .zip contendo uma ou mais ROMs.</p>
       <button class="secondary-button" @click="emit('close')">Fechar</button>
     </section>
   </div>

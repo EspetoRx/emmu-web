@@ -984,6 +984,12 @@ p {
   width: min(100%, 1024px, calc((100vh - 220px) * 2 / 3));
 }
 
+/* PSP renderiza 480x272 (30:17 ≈ 16:9). Mantém o LCD nativo sem distorção. */
+.game-canvas.psp-canvas {
+  aspect-ratio: 480 / 272;
+  width: min(100%, 1280px, calc((100vh - 220px) * 480 / 272));
+}
+
 .game-canvas:focus {
   outline: none;
 }
@@ -1025,6 +1031,10 @@ p {
 
 .game-stage:fullscreen .game-canvas.nds-canvas {
   width: min(100vw, calc(100dvh * 2 / 3));
+}
+
+.game-stage:fullscreen .game-canvas.psp-canvas {
+  width: min(100vw, calc(100dvh * 480 / 272));
 }
 
 .game-stage:fullscreen .touch-controls {
@@ -1772,6 +1782,10 @@ p {
 
   .game-canvas.nds-canvas {
     width: min(100%, calc(48vh * 2 / 3));
+  }
+
+  .game-canvas.psp-canvas {
+    width: min(100%, calc(48vh * 480 / 272));
   }
 
   .touch-controls {

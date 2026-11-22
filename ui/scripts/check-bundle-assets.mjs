@@ -1,5 +1,5 @@
 // Valida que o dist/ contém todos os cores WASM (incluindo N64 e NDS no
-// WebView desktop) e os assets de runtime do N64.
+// WebView desktop) e os assets de runtime do N64 e do PSP.
 // Roda como `postbuild`: se faltar alguma dependência, o bundle desktop (que
 // embute frontendDist) e o deploy web falham com mensagem clara.
 import { existsSync, readdirSync } from "node:fs";
@@ -40,6 +40,17 @@ for (const file of ["n64wasm.js", "n64wasm.wasm", "assets.zip"]) {
   }
 }
 
+for (const file of [
+  "ppsspp_libretro.js",
+  "ppsspp_libretro.wasm",
+  "ppsspp-assets.zip",
+  "license.txt",
+]) {
+  if (!existsSync(join(dist, "wasm", "psp", file))) {
+    missing.push(`dist/wasm/psp/${file}`);
+  }
+}
+
 if (missing.length) {
   console.error("[check-bundle-assets] Faltam dependências no dist/:");
   for (const item of missing) console.error(`  - ${item}`);
@@ -48,5 +59,5 @@ if (missing.length) {
 }
 
 console.log(
-  `[check-bundle-assets] OK: ${cores.length} cores WASM + assets N64Wasm presentes no dist/.`,
+  `[check-bundle-assets] OK: ${cores.length} cores WASM + assets N64Wasm e PPSSPP presentes no dist/.`,
 );

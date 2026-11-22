@@ -51,7 +51,7 @@ const emit = defineEmits([
 
 const systemLabel = computed(() => props.system.toUpperCase());
 const isSinglePlayerSystem = computed(() =>
-  ["GG", "WS"].includes(systemLabel.value),
+  ["GG", "WS", "NDS"].includes(systemLabel.value),
 );
 const isN64 = computed(() => systemLabel.value === "N64");
 const activeBindings = computed(() => {

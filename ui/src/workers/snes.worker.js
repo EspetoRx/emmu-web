@@ -8,6 +8,7 @@ import initializeSmsWasm, { SmsEmulator } from "./../wasm/sms/emmu_sms.js";
 import initializeWsWasm, { WsEmulator } from "./../wasm/ws/emmu_ws.js";
 import initializePceWasm, { PceEmulator } from "./../wasm/pce/emmu_pce.js";
 import initializeN64Wasm, { N64Emulator } from "./../wasm/n64/emmu_n64.js";
+import { initializeNdsWasm, NdsCoreAdapter } from "./../wasm/nds/adapter.js";
 
 let emulator = null;
 let romData = null;
@@ -71,6 +72,12 @@ self.addEventListener("message", async ({ data }) => {
           if (typeof emulator.initialize === "function") {
             await emulator.initialize();
           }
+        } else if (system === "NDS") {
+          await initializeNdsWasm();
+          emulator = new NdsCoreAdapter(rom);
+          if (typeof emulator.initialize === "function") {
+            await emulator.initialize();
+          }
         } else {
           throw new Error(`Sistema não suportado: ${system}`);
         }
@@ -85,7 +92,9 @@ self.addEventListener("message", async ({ data }) => {
         // N64: recriar o módulo Emscripten troca o canvas WebGL e deixa o jogo
         // desenhado em apenas um quadrante. O bridge usa _neil_reset() no mesmo
         // módulo, preservando canvas, áudio e dimensões do frame.
-        if (gameSystem === "N64" && emulator) {
+        // NDS: o adapter reconstrói o dust sem recriar o módulo WASM, mantendo
+        // renderers, ROM e save RAM do cartucho.
+        if ((gameSystem === "N64" || gameSystem === "NDS") && emulator) {
           await emulator.restart();
           break;
         }
@@ -149,6 +158,18 @@ self.addEventListener("message", async ({ data }) => {
           emulator.setButtonForPlayer(data.button, data.pressed, player);
         } else {
           emulator.setButton(data.button, data.pressed, player);
+        }
+        break;
+      }
+      case "setTouch": {
+        if (typeof emulator.setTouch === "function") {
+          emulator.setTouch(data.x, data.y);
+        }
+        break;
+      }
+      case "endTouch": {
+        if (typeof emulator.endTouch === "function") {
+          emulator.endTouch();
         }
         break;
       }

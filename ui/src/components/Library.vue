@@ -130,6 +130,7 @@ onMounted(() => {
             <option value="sms">Master System</option>
             <option value="ws">WonderSwan</option>
             <option value="pce">PC Engine</option>
+            <option value="nds">Nintendo DS</option>
             <option value="n64">Nintendo 64</option>
           </select>
           <label for="library-sort">Organizar por</label>
@@ -197,7 +198,7 @@ onMounted(() => {
       <button class="secondary-button" @click="emit('open-file-picker')">
         Escolher arquivos
       </button>
-      <span class="supported-formats">Compatível com .nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .sms, .ws, .wsc, .pce, .z64, .n64, .v64 e ZIPs de ROM</span>
+      <span class="supported-formats">Compatível com .nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .sms, .ws, .wsc, .pce, .nds, .z64, .n64, .v64 e ZIPs de ROM</span>
     </div>
   </section>
 </template>

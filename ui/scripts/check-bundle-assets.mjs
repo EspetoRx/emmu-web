@@ -1,4 +1,5 @@
-// Valida que o dist/ contém todos os cores WASM e os assets de runtime do N64.
+// Valida que o dist/ contém todos os cores WASM (incluindo N64 e NDS no
+// WebView desktop) e os assets de runtime do N64.
 // Roda como `postbuild`: se faltar alguma dependência, o bundle desktop (que
 // embute frontendDist) e o deploy web falham com mensagem clara.
 import { existsSync, readdirSync } from "node:fs";
@@ -19,6 +20,7 @@ const cores = [
   "emmu_ws",
   "emmu_pce",
   "emmu_n64",
+  "emmu_nds",
 ];
 
 if (!existsSync(join(dist, "index.html"))) missing.push("dist/index.html");

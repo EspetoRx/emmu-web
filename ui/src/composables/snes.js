@@ -202,11 +202,25 @@ class EmulationWorkerClient {
   }
 
   setButton(button, pressed, player = 1) {
-    // N64 tem 4 jogadores reais; os demais cores usam apenas P1/P2.
+    // N64 tem 4 jogadores reais; NDS e os demais cores usam apenas P1/P2.
     const slot = this.system === "N64"
       ? Math.max(1, Math.min(4, player | 0 || 1))
-      : (player === 2 ? 2 : 1);
+      : this.system === "NDS"
+        ? 1
+        : (player === 2 ? 2 : 1);
     return this.request("setButton", { button, pressed, player: slot });
+  }
+
+  setTouch(x, y) {
+    return this.request("setTouch", { x, y });
+  }
+
+  endTouch() {
+    return this.request("endTouch");
+  }
+
+  setVolume(volume) {
+    return this.request("setVolume", { volume });
   }
 
   saveState() {
@@ -245,11 +259,14 @@ export async function createEmulator(romBytes, format) {
                 ? "PCE"
                 : format === "N64"
                   ? "N64"
-                  : "SNES";
+                  : format === "NDS"
+                    ? "NDS"
+                    : "SNES";
 
-  if (isTauriDesktop() && system !== "N64") {
+  if (isTauriDesktop() && system !== "N64" && system !== "NDS") {
     // No desktop, a maioria dos consoles roda no Mesen, com SDL para áudio e
-    // save states .mss. N64 usa o core WASM no WebView (Mesen não suporta N64).
+    // save states .mss. N64 e NDS usam o core WASM no WebView (Mesen não suporta
+    // nenhum dos dois).
     const romCopy = new Uint8Array(romBytes);
     const screenSize = await tauriInvoke("mesen_init_rom", {
       romBytes: Array.from(romCopy),

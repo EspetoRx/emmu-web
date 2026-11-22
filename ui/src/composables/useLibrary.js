@@ -20,6 +20,7 @@ function errorText(error) {
 function formatForExtension(extension) {
   if (extension === "wsc") return "WS";
   if (extension === "z64" || extension === "n64" || extension === "v64") return "N64";
+  if (extension === "nds") return "NDS";
   return extension.toUpperCase();
 }
 
@@ -39,11 +40,15 @@ const SUPPORTED_ROM_EXTENSIONS = [
   "z64",
   "n64",
   "v64",
+  "nds",
 ];
 const SUPPORTED_ROM_LABEL =
-  ".nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .sms, .ws, .wsc, .pce, .z64, .n64 e .v64";
+  ".nes, .sfc, .smc, .fig, .gba, .gb, .gbc, .gg, .sms, .ws, .wsc, .pce, .nds, .z64, .n64 e .v64";
 // O limite evita ZIP bombs (nenhum cartucho portátil desta geração chega perto).
 const MAX_EXTRACTED_ROM_BYTES = 8 * 1024 * 1024;
+// ROMs NDSi Enhanced legítimas passam de 256 MiB, então precisam de um limite
+// próprio dentro de ZIPs (o limite padrão é para cartuchos de 8 MiB).
+const MAX_NDS_ROM_BYTES = 512 * 1024 * 1024;
 
 /**
  * Aceita ROMs soltas e arquivos .zip (o formato mais comum de distribuição de
@@ -62,21 +67,23 @@ async function expandRomFile(file) {
 
   const roms = Object.entries(entries)
     .filter(([path, bytes]) =>
-      /\.(gg|sms|ws|wsc|z64|n64|v64)$/i.test(path) && bytes.length > 0,
+      /\.(gg|sms|ws|wsc|nds|z64|n64|v64)$/i.test(path) && bytes.length > 0,
     )
     .sort(([a], [b]) => a.localeCompare(b, "pt-BR", { numeric: true }));
 
   if (!roms.length) {
     throw new Error(
-      "nenhum arquivo .gg, .sms, .ws, .wsc, .z64, .n64 ou .v64 foi encontrado dentro do ZIP",
+      "nenhum arquivo .gg, .sms, .ws, .wsc, .nds, .z64, .n64 ou .v64 foi encontrado dentro do ZIP",
     );
   }
 
   return roms.map(([path, bytes]) => {
     const ext = (path.split(".").pop() || "").toLowerCase();
-    const limit = ext === "z64" || ext === "n64" || ext === "v64"
-      ? 64 * 1024 * 1024
-      : MAX_EXTRACTED_ROM_BYTES;
+    const limit = ext === "nds"
+      ? MAX_NDS_ROM_BYTES
+      : ext === "z64" || ext === "n64" || ext === "v64"
+        ? 64 * 1024 * 1024
+        : MAX_EXTRACTED_ROM_BYTES;
     if (bytes.length > limit) {
       throw new Error(`ROM ${path} é grande demais para importar`);
     }
@@ -149,7 +156,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                           ? game.format === "PCE"
                           : libraryFormat.value === "n64"
                             ? game.format === "N64"
-                            : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
+                            : libraryFormat.value === "nds"
+                              ? game.format === "NDS"
+                              : ["SFC", "SMC", "SNES", "FIG"].includes(game.format));
         return matchesSearch && matchesFormat;
       })
       .sort((first, second) => {
@@ -232,7 +241,9 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
                           ? "WS"
                           : game.format === "N64"
                             ? "N64"
-                            : "SNES";
+                            : game.format === "NDS"
+                              ? "NDS"
+                              : "SNES";
           label = key;
           break;
         case "format":
@@ -268,7 +279,7 @@ export function useLibrary({ onError, onClearError, onRomRecovered } = {}) {
       const saved = JSON.parse(raw);
       if (typeof saved.search === "string") librarySearch.value = saved.search;
       if (
-        ["all", "nes", "snes", "gba", "gb", "gbc", "gg", "sms", "ws", "pce", "n64"].includes(
+        ["all", "nes", "snes", "gba", "gb", "gbc", "gg", "sms", "ws", "pce", "nds", "n64"].includes(
           saved.format,
         )
       )

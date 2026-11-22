@@ -57,6 +57,8 @@ const emit = defineEmits([
   "set-audio-volume",
   "save-state",
   "set-button",
+  "set-touch",
+  "end-touch",
   "register-stage",
   "register-canvas",
 ]);
@@ -71,9 +73,10 @@ const isGameGear = computed(() => props.activeGame.format === "GG");
 const isMasterSystem = computed(() => props.activeGame.format === "SMS");
 const isWonderSwan = computed(() => props.activeGame.format === "WS");
 const isN64 = computed(() => props.activeGame.format === "N64");
+const isNds = computed(() => props.activeGame.format === "NDS");
 const isHandheld = computed(() => isGameBoy.value || isGameGear.value);
-// WonderSwan é portátil e não tem P2. N64 tem 4 jogadores, tratado separadamente.
-const isSinglePlayer = computed(() => isHandheld.value || isWonderSwan.value);
+// WonderSwan e NDS são portáteis e não têm P2. N64 tem 4 jogadores, tratado separadamente.
+const isSinglePlayer = computed(() => isHandheld.value || isWonderSwan.value || isNds.value);
 
 // Os controles de toque são sempre do jogador 1. O quarto argumento carrega o
 // PointerEvent para `preventDefault()` (evita scroll/zoom e foco preso no
@@ -84,6 +87,49 @@ function pressButton(button, pressed, event, player = 1) {
   // enquanto o alvo for um botão (dispositivos híbridos touch + teclado).
   if (pressed) event?.currentTarget?.blur?.();
   emit("set-button", button, pressed, player, event);
+}
+
+// A tela inferior do NDS ocupa a metade de baixo do frame empilhado. O core
+// recebe coordenadas locais (0..255, 0..191) e ignora toques na tela superior.
+function ndsTouchPoint(event) {
+  const canvas = canvasRef.value;
+  if (!canvas) return null;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  const x = Math.round(((event.clientX - rect.left) / rect.width) * props.frameWidth);
+  const y = Math.round(((event.clientY - rect.top) / rect.height) * props.frameHeight);
+  const screenHeight = props.frameHeight / 2;
+  if (y < screenHeight || y >= props.frameHeight) return null;
+  return {
+    x: Math.max(0, Math.min(props.frameWidth - 1, x)),
+    y: Math.max(0, Math.min(screenHeight - 1, Math.round(y - screenHeight))),
+  };
+}
+
+function handleNdsPointerDown(event) {
+  if (!isNds.value) return;
+  event.preventDefault();
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+  const point = ndsTouchPoint(event);
+  if (point) emit("set-touch", point.x, point.y);
+  else emit("end-touch");
+}
+
+function handleNdsPointerMove(event) {
+  if (!isNds.value || !event.currentTarget.hasPointerCapture?.(event.pointerId)) return;
+  event.preventDefault();
+  const point = ndsTouchPoint(event);
+  if (point) emit("set-touch", point.x, point.y);
+  else emit("end-touch");
+}
+
+function handleNdsPointerEnd(event) {
+  if (!isNds.value) return;
+  event.preventDefault();
+  if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+  emit("end-touch");
 }
 
 function handleFullscreenChange() {
@@ -217,14 +263,15 @@ onBeforeUnmount(() => {
 
     <div ref="gameStageRef" class="game-stage">
       <canvas ref="canvasRef" class="game-canvas"
-        :class="{ 'nes-canvas': activeGame.format === 'NES' || isMasterSystem, 'gba-canvas': isGba, 'gbc-canvas': isHandheld, 'ws-canvas': isWonderSwan, 'pce-canvas': isPce, 'n64-canvas': isN64 }" :width="frameWidth"
-        :height="frameHeight" aria-label="Tela do jogo" tabindex="0" @contextmenu.prevent></canvas>
+        :class="{ 'nes-canvas': activeGame.format === 'NES' || isMasterSystem, 'gba-canvas': isGba, 'gbc-canvas': isHandheld, 'ws-canvas': isWonderSwan, 'pce-canvas': isPce, 'n64-canvas': isN64, 'nds-canvas': isNds }" :width="frameWidth"
+        :height="frameHeight" :aria-label="isNds ? 'Telas do Nintendo DS (toque na tela inferior)' : 'Tela do jogo'" tabindex="0" @contextmenu.prevent
+        @pointerdown="handleNdsPointerDown" @pointermove="handleNdsPointerMove" @pointerup="handleNdsPointerEnd" @pointercancel="handleNdsPointerEnd"></canvas>
       <button v-if="isFullscreen" class="fullscreen-exit-button" aria-label="Sair da tela cheia"
         @click="toggleFullscreen">
         Sair da tela cheia
       </button>
       <div v-if="isMobileDevice" class="touch-controls"
-        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isN64 ? 'Nintendo 64' : isGba ? 'GBA' : isGameGear ? 'Game Gear' : isMasterSystem ? 'Master System' : isWonderSwan ? 'WonderSwan' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
+        :aria-label="`Controles ${activeGame.format === 'NES' ? 'NES' : isN64 ? 'Nintendo 64' : isNds ? 'Nintendo DS' : isGba ? 'GBA' : isGameGear ? 'Game Gear' : isMasterSystem ? 'Master System' : isWonderSwan ? 'WonderSwan' : isGameBoy ? activeGame.format : isPce ? 'PC Engine' : 'SNES'}`">
         <div class="touch-dpad">
           <button class="touch-button dpad-up" aria-label="Cima" @pointerdown="pressButton('Up', true, $event)"
             @pointerup="pressButton('Up', false, $event)"
@@ -306,7 +353,7 @@ onBeforeUnmount(() => {
             A→
           </button>
         </div>
-        <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba, 'gbc-action-pad': isHandheld, 'n64-action-pad': isN64 }">
+        <div class="touch-action-pad" :class="{ 'gba-action-pad': isGba, 'gbc-action-pad': isHandheld, 'n64-action-pad': isN64, 'nds-action-pad': isNds }">
           <button v-if="isN64" class="touch-button touch-shoulder" aria-label="L" @pointerdown="pressButton('L', true, $event)" @pointerup="pressButton('L', false, $event)" @pointercancel="pressButton('L', false, $event)" @pointerleave="pressButton('L', false, $event)">L</button>
           <button v-if="isN64" class="touch-button touch-shoulder" aria-label="R" @pointerdown="pressButton('R', true, $event)" @pointerup="pressButton('R', false, $event)" @pointercancel="pressButton('R', false, $event)" @pointerleave="pressButton('R', false, $event)">R</button>
           <button v-if="isN64" class="touch-button" aria-label="Z" @pointerdown="pressButton('Z', true, $event)" @pointerup="pressButton('Z', false, $event)" @pointercancel="pressButton('Z', false, $event)" @pointerleave="pressButton('Z', false, $event)">Z</button>
@@ -324,12 +371,12 @@ onBeforeUnmount(() => {
             @pointerleave="pressButton('X', false, $event)">
             X
           </button>
-          <button v-if="isGba" class="touch-button touch-shoulder" aria-label="L" @pointerdown="pressButton('L', true, $event)"
+          <button v-if="isGba || isNds" class="touch-button touch-shoulder" aria-label="L" @pointerdown="pressButton('L', true, $event)"
             @pointerup="pressButton('L', false, $event)" @pointercancel="pressButton('L', false, $event)"
             @pointerleave="pressButton('L', false, $event)">
             L
           </button>
-          <button v-if="isGba" class="touch-button touch-shoulder" aria-label="R" @pointerdown="pressButton('R', true, $event)"
+          <button v-if="isGba || isNds" class="touch-button touch-shoulder" aria-label="R" @pointerdown="pressButton('R', true, $event)"
             @pointerup="pressButton('R', false, $event)" @pointercancel="pressButton('R', false, $event)"
             @pointerleave="pressButton('R', false, $event)">
             R
@@ -378,6 +425,16 @@ onBeforeUnmount(() => {
 .pad-connected {
   border-color: #4ade80;
   color: #4ade80;
+}
+
+/* NDS tem seis botões de ação/shoulder; organiza o pad compacto em 3 linhas. */
+.nds-action-pad {
+  grid-template: repeat(3, 40px) / repeat(2, 40px);
+  gap: 6px;
+}
+
+.nds-action-pad .touch-shoulder {
+  font-size: 11px;
 }
 
 /* Segundo direcional do WonderSwan e analógico do N64: compactos para caber

@@ -173,6 +173,8 @@ const {
   openSaveHistory,
   restoreHistoricalSave,
   setButton,
+  setTouch,
+  endTouch,
   releaseAllButtons,
   restartGame,
   openGame,
@@ -391,7 +393,7 @@ onBeforeUnmount(() => {
       @close-menu="openMenu = null" @open-file-picker="openFilePicker" @return-to-library="returnToLibrary"
       @request-clear-library="requestClearLibrary" @open-controls="openControls(1)" />
 
-    <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig,.gba,.gb,.gbc,.gg,.sms,.ws,.wsc,.pce,.z64,.n64,.v64,.zip"
+    <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig,.gba,.gb,.gbc,.gg,.sms,.ws,.wsc,.pce,.nds,.z64,.n64,.v64,.zip"
       aria-label="Abrir arquivos de jogos" tabindex="-1" @change="addRom" />
 
     <Library v-if="!activeGame" v-model:search="librarySearch" v-model:format="libraryFormat" v-model:sort="librarySort"
@@ -409,8 +411,8 @@ onBeforeUnmount(() => {
       @return-to-library="returnToLibrary" @restart="restartGame" @open-p1-controls="(p) => openControls(typeof p === 'number' ? p : 1)"
       @open-p2-controls="openControls(2, { enableP2: true })"
       @toggle-audio-controls="showAudioControls = !showAudioControls" @set-audio-volume="handleSetAudioVolume"
-      @save-state="saveGameState" @set-button="setButton" @register-stage="gameStageRef = $event"
-      @register-canvas="setCanvasElement" />
+      @save-state="saveGameState" @set-button="setButton" @set-touch="setTouch" @end-touch="endTouch"
+      @register-stage="gameStageRef = $event" @register-canvas="setCanvasElement" />
 
     <HelpDialog :open="showHelp" :is-mobile-device="isMobileDevice" @close="showHelp = false" />
 

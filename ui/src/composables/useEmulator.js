@@ -18,6 +18,8 @@ const WS_FRAME_WIDTH = 224;
 const WS_FRAME_HEIGHT = 144;
 const N64_FRAME_WIDTH = 320;
 const N64_FRAME_HEIGHT = 240;
+const NDS_FRAME_WIDTH = 256;
+const NDS_FRAME_HEIGHT = 384;
 const FRAME_INTERVAL = 1000 / 60;
 const CHECKPOINT_INTERVAL = 5000;
 
@@ -136,6 +138,7 @@ export function useEmulator({
     if (format === "NES") return NES_FRAME_WIDTH;
     if (format === "GBA") return GBA_FRAME_WIDTH;
     if (format === "N64") return N64_FRAME_WIDTH;
+    if (format === "NDS") return NDS_FRAME_WIDTH;
     if (format === "SMS") return SMS_FRAME_WIDTH;
     if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_WIDTH;
     if (isWonderSwanFormat(format)) return WS_FRAME_WIDTH;
@@ -147,6 +150,7 @@ export function useEmulator({
     if (format === "NES") return NES_FRAME_HEIGHT;
     if (format === "GBA") return GBA_FRAME_HEIGHT;
     if (format === "N64") return N64_FRAME_HEIGHT;
+    if (format === "NDS") return NDS_FRAME_HEIGHT;
     if (format === "SMS") return SMS_FRAME_HEIGHT;
     if (isGameBoyFormat(format) || isGameGearFormat(format)) return GBC_FRAME_HEIGHT;
     if (isWonderSwanFormat(format)) return WS_FRAME_HEIGHT;
@@ -501,7 +505,22 @@ export function useEmulator({
     void Promise.resolve(snesCore.setP2Enabled(enabled)).catch(() => {});
   }
 
+  function setTouch(x, y) {
+    if (typeof snesCore?.setTouch !== "function") return;
+    void Promise.resolve(snesCore.setTouch(x, y)).catch((error) => {
+      onSetPlayerError?.(
+        `Não foi possível atualizar a tela sensível: ${errorText(error)}`,
+      );
+    });
+  }
+
+  function endTouch() {
+    if (typeof snesCore?.endTouch !== "function") return;
+    void Promise.resolve(snesCore.endTouch()).catch(() => {});
+  }
+
   function releaseAllButtons() {
+    endTouch();
     for (const key of pressedButtons) {
       const [slotStr, button] = key.split(":");
       setButton(button, false, Number(slotStr) || 1, null);
@@ -861,6 +880,8 @@ export function useEmulator({
     openSaveHistory,
     restoreHistoricalSave,
     setButton,
+    setTouch,
+    endTouch,
     releaseAllButtons,
     restartGame,
     openGame,

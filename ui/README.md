@@ -16,6 +16,7 @@ Interface Vue 3 + Vite 6 compartilhada pelo navegador e pelo aplicativo Tauri (d
 | Configuração de teclado | `src/composables/useControls.js`, `src/composables/useShortcuts.js` |
 | Mensagens ao usuário | `src/composables/useToast.js`, `src/components/ErrorToast.vue` |
 | Analógico N64 | `src/composables/useControls.js`, `src/components/ControlsDialog.vue`, `src/components/Player.vue` |
+| Validação do bundle | `scripts/check-bundle-assets.mjs` (`postbuild`) |
 
 No navegador, `createEmulator()` cria um `EmulationWorkerClient` e carrega um dos dez cores WASM. Sob Tauri, cria `MesenTauriClient` e usa `invoke("mesen_*")` + o protocolo `emmu-frame://`. N64 é a exceção: usa o worker WASM também no desktop, pois o Mesen não implementa esse console.
 
@@ -65,6 +66,7 @@ platforms/web/ui/
 ├── package-lock.json
 ├── vite.config.js             # plugin-vue, porta 5173 com strictPort
 ├── public/wasm/n64/           # runtime N64Wasm servido em /wasm/n64/
+├── scripts/                   # check-bundle-assets.mjs (postbuild)
 ├── dist/                      # saída de produção (gerada)
 └── src/
     ├── App.vue                # shell, diálogos, atalhos, autosave, geração de miniaturas
@@ -103,7 +105,11 @@ platforms/web/ui/
         ├── gba/
         ├── gbc/
         ├── gb/
-        └── pce/
+        ├── gg/
+        ├── sms/
+        ├── ws/
+        ├── pce/
+        └── n64/
 ```
 
 ## Pré-requisitos
@@ -120,7 +126,7 @@ Node.js LTS (18+) e npm. Para desktop, instale também os pré-requisitos do Tau
 ```sh
 npm install
 npm run dev       # predev roda build:wasm; Vite em 127.0.0.1:5173
-npm run build     # prebuild roda build:wasm; saída em dist/
+npm run build     # prebuild roda build:wasm; postbuild valida os assets; saída em dist/
 npm run preview   # serve dist/
 ```
 
@@ -138,8 +144,17 @@ emmu-nes   → src/wasm/nes
 emmu-gba   → node tools/build-bridge.mjs → src/wasm/gba
 emmu-gbc   → src/wasm/gbc
 emmu-gb    → src/wasm/gb
+emmu-gg    → src/wasm/gg
+emmu-sms   → src/wasm/sms
+emmu-ws    → src/wasm/ws
 emmu-pce   → src/wasm/pce
+emmu-n64   → src/wasm/n64 + public/wasm/n64 (assets do N64Wasm)
 ```
+
+O `postbuild` executa `scripts/check-bundle-assets.mjs`: confere os dez
+`*_bg.wasm` em `dist/assets/` e `n64wasm.js`, `n64wasm.wasm` e `assets.zip` em
+`dist/wasm/n64/`. É o que garante que o instalador desktop não embuta um core
+faltando.
 
 Desktop e mobile:
 

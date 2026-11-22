@@ -13,6 +13,9 @@ const LIBRARY_FILTERS_STORAGE_KEY = "emmu.library.filters";
 const MIN_LIBRARY_LOADING_MS = 450;
 
 function errorText(error) {
+  if (error?.name === "QuotaExceededError") {
+    return "Espaço insuficiente no navegador para guardar a ROM. Libere espaço ou remova outros jogos da biblioteca.";
+  }
   return error instanceof Error ? error.message : String(error);
 }
 

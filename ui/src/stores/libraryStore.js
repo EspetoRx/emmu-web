@@ -151,27 +151,19 @@ export async function loadLibraryGames(onProgress) {
 export async function saveLibraryGame(game) {
   const { previewUrl, ...record } = game;
 
-  let rom = record.rom;
-  if (rom instanceof Blob || rom instanceof File) {
-    rom = await rom.arrayBuffer();
-  }
-  let state = record.state;
-  if (state instanceof Blob) {
-    state = await state.arrayBuffer();
-  }
-  let preview = record.preview;
-  if (preview instanceof Blob) {
-    preview = await preview.arrayBuffer();
-  }
-
+  // A ROM precisa continuar como Blob/File. O IndexedDB serializa ArrayBuffer
+  // dentro do registro (limite de ~127 MiB no Chromium), mas armazena Blob por
+  // referência, fora do valor serializado. Converter para ArrayBuffer aqui
+  // fazia qualquer ROM maior que esse limite falhar na importação/autosave.
+  // O mesmo vale para estados e miniaturas, que também podem crescer.
+  const rom = record.rom;
+  const state = record.state;
+  const preview = record.preview;
   const saveHistory = Array.isArray(record.saveHistory)
-    ? await Promise.all(
-        record.saveHistory.map(async ({ state: hState, savedAt }) => {
-          let hs = hState;
-          if (hs instanceof Blob) hs = await hs.arrayBuffer();
-          return { state: hs, savedAt };
-        }),
-      )
+    ? record.saveHistory.map(({ state: hState, savedAt }) => ({
+        state: hState,
+        savedAt,
+      }))
     : [];
 
   const cleanRecord = { ...record, rom, state, preview, saveHistory };
@@ -193,23 +185,11 @@ export function clearLibraryGames() {
   });
 }
 
-export async function saveGameProgress(
-  id,
-  progress,
-  { recordHistory = true } = {},
-) {
-  let state = progress.state;
-  if (state instanceof Blob) {
-    state = await state.arrayBuffer();
-  }
-  let preview = progress.preview;
-  if (preview instanceof Blob) {
-    preview = await preview.arrayBuffer();
-  }
+export function saveGameProgress(id, progress, { recordHistory = true } = {}) {
   const cleanProgress = {
     ...progress,
-    ...(state ? { state } : {}),
-    ...(preview ? { preview } : {}),
+    ...(progress.state ? { state: progress.state } : {}),
+    ...(progress.preview ? { preview: progress.preview } : {}),
   };
 
   return runTransaction(GAME_STORE, "readwrite", (store, setResult, fail) => {
@@ -217,28 +197,56 @@ export async function saveGameProgress(
     request.onerror = () => {
       fail(request.error ?? new Error("Falha ao ler o progresso salvo."));
     };
-    request.onsuccess = async () => {
+    request.onsuccess = () => {
       const current = request.result;
       if (!current) {
         fail(new Error("O jogo não foi encontrado na biblioteca local."));
         return;
       }
 
-      let currentState = current.state;
-      if (currentState instanceof Blob) {
-        currentState = await currentState.arrayBuffer();
-      }
+      // Registros de versões antigas podem ter ROM/estado como ArrayBuffer.
+      // Normaliza para Blob antes de regravar: mantém a ROM fora do valor
+      // serializado e cura o registro antigo no próximo checkpoint.
+      const normalized = {
+        ...current,
+        ...(current.rom instanceof ArrayBuffer
+          ? {
+              rom: new Blob([current.rom], {
+                type: "application/octet-stream",
+              }),
+            }
+          : {}),
+        ...(current.state instanceof ArrayBuffer
+          ? {
+              state: new Blob([current.state], {
+                type: "application/octet-stream",
+              }),
+            }
+          : {}),
+      };
 
-      const saveHistory = Array.isArray(current.saveHistory)
-        ? current.saveHistory
+      const saveHistory = Array.isArray(normalized.saveHistory)
+        ? normalized.saveHistory.map((entry) => ({
+            ...entry,
+            ...(entry.state instanceof ArrayBuffer
+              ? {
+                  state: new Blob([entry.state], {
+                    type: "application/octet-stream",
+                  }),
+                }
+              : {}),
+          }))
         : [];
       const history =
-        recordHistory && currentState && current.stateSavedAt
-          ? [{ state: currentState, savedAt: current.stateSavedAt }, ...saveHistory]
+        recordHistory && normalized.state && normalized.stateSavedAt
+          ? [
+              { state: normalized.state, savedAt: normalized.stateSavedAt },
+              ...saveHistory,
+            ]
           : saveHistory;
 
       const updated = {
-        ...current,
+        ...normalized,
         ...cleanProgress,
         saveHistory: history.slice(0, MAX_SAVE_HISTORY),
       };
@@ -250,26 +258,7 @@ export async function saveGameProgress(
         );
       };
 
-      let finalRom = updated.rom;
-      if (finalRom instanceof ArrayBuffer) finalRom = new Blob([finalRom]);
-      let finalState = updated.state;
-      if (finalState instanceof ArrayBuffer) finalState = new Blob([finalState]);
-      let finalPreview = updated.preview;
-      if (finalPreview instanceof ArrayBuffer)
-        finalPreview = new Blob([finalPreview]);
-      let finalHistory = (updated.saveHistory || []).map((h) => {
-        let s = h.state;
-        if (s instanceof ArrayBuffer) s = new Blob([s]);
-        return { ...h, state: s };
-      });
-
-      setResult({
-        ...updated,
-        rom: finalRom,
-        state: finalState,
-        preview: finalPreview,
-        saveHistory: finalHistory,
-      });
+      setResult(updated);
     };
   });
 }

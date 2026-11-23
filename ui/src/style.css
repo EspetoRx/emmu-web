@@ -990,6 +990,32 @@ p {
   width: min(100%, 1280px, calc((100vh - 220px) * 480 / 272));
 }
 
+/* No PSP o PPSSPP desenha direto no canvas do overlay: o compositor apresenta
+   o drawing buffer completo, sem o tearing do drawImage e sem o custo de
+   readPixels + ImageData por frame. O canvas da UI fica oculto. */
+.game-stage.psp-active > .game-canvas {
+  display: none;
+}
+
+.psp-canvas-layer {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 50%;
+  width: calc(480px / var(--psp-dpr, 1));
+  height: calc(272px / var(--psp-dpr, 1));
+  transform: translate(-50%, -50%) scale(var(--psp-scale, 1));
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.psp-canvas-layer canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: auto;
+}
+
 .game-canvas:focus {
   outline: none;
 }

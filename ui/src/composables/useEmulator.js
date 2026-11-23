@@ -105,6 +105,7 @@ export function useEmulator({
   getAudioVolume,
 }) {
   const canvasRef = ref(null);
+  const stageRef = ref(null);
   let snesCore = null;
   const hasCore = ref(false);
   const stateSaveStatus = ref("");
@@ -166,6 +167,10 @@ export function useEmulator({
     canvasRef.value = el;
   }
 
+  function setStageElement(el) {
+    stageRef.value = el;
+  }
+
   function stopEmulationLoop() {
     emulationGeneration += 1;
     if (emulationTimerId) {
@@ -176,6 +181,9 @@ export function useEmulator({
   }
 
   function drawFrame(frame, frameInfo = {}) {
+    // No PSP o core desenha em um canvas overlay próprio e devolve frame vazio.
+    // Não tocar no canvas da UI aqui: ele fica oculto enquanto o PSP está ativo.
+    if (frame?.length === 0) return;
     const canvas = canvasRef.value;
     const context = canvas?.getContext("2d", { alpha: false });
     if (!context) {
@@ -714,7 +722,9 @@ export function useEmulator({
         });
         Object.assign(game, { rom: durableRom, romUnavailable: false });
       }
-      core = await createEmulator(romBytes, game.format);
+      core = await createEmulator(romBytes, game.format, {
+        stage: stageRef.value,
+      });
       await audioReady;
       if (
         loadGeneration !== gameLoadGeneration ||
@@ -899,6 +909,7 @@ export function useEmulator({
     isRestoringSave,
     resumedFromSave,
     setCanvasElement,
+    setStageElement,
     capturePreview,
     saveGameState,
     setEmulatorVolume,

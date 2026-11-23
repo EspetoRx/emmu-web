@@ -155,6 +155,7 @@ const {
 
 const {
   canvasRef,
+  setStageElement,
   hasCore,
   frameWidth,
   frameHeight,
@@ -413,7 +414,7 @@ onBeforeUnmount(() => {
       @open-p2-controls="openControls(2, { enableP2: true, format: activeGame?.format })"
       @toggle-audio-controls="showAudioControls = !showAudioControls" @set-audio-volume="handleSetAudioVolume"
       @save-state="saveGameState" @set-button="setButton" @set-touch="setTouch" @end-touch="endTouch"
-      @register-stage="gameStageRef = $event" @register-canvas="setCanvasElement" />
+      @register-stage="gameStageRef = $event; setStageElement($event)" @register-canvas="setCanvasElement" />
 
     <HelpDialog :open="showHelp" :is-mobile-device="isMobileDevice" @close="showHelp = false" />
 

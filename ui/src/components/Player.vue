@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 const props = defineProps({
   activeGame: {
@@ -76,6 +76,33 @@ const isN64 = computed(() => props.activeGame.format === "N64");
 const isNds = computed(() => props.activeGame.format === "NDS");
 const isPsp = computed(() => props.activeGame.format === "PSP");
 const isHandheld = computed(() => isGameBoy.value || isGameGear.value);
+
+// No PSP o PPSSPP desenha em um canvas overlay acoplado ao palco. O tamanho de
+// layout precisa continuar 480/dpr × 272/dpr para o ResizeObserver do core
+// reportar 480×272; o preenchimento do palco é feito com transform: scale(),
+// que não altera contentRect e por isso não dispara redimensionamento do core.
+const pspDpr = ref(window.devicePixelRatio || 1);
+const pspScale = ref(1);
+let pspStageObserver = null;
+
+function updatePspScale() {
+  if (!isPsp.value) return;
+  const stage = gameStageRef.value;
+  if (!stage) return;
+  const dpr = window.devicePixelRatio || 1;
+  pspDpr.value = dpr;
+  const availableWidth = stage.clientWidth;
+  const availableHeight = stage.clientHeight;
+  const scale = Math.min(
+    availableWidth / (480 / dpr),
+    availableHeight / (272 / dpr),
+  );
+  pspScale.value = Number.isFinite(scale) ? Math.max(0.1, scale) : 1;
+}
+
+watch(isPsp, (value) => {
+  if (value) void nextTick(updatePspScale);
+});
 // WonderSwan, NDS e PSP são portáteis e não têm P2. N64 tem 4 jogadores,
 // tratado separadamente. O PSP também tem analógico digital (4 direções).
 const isSinglePlayer = computed(
@@ -138,6 +165,7 @@ function handleNdsPointerEnd(event) {
 
 function handleFullscreenChange() {
   isFullscreen.value = document.fullscreenElement === gameStageRef.value;
+  updatePspScale();
 }
 
 async function toggleFullscreen() {
@@ -160,10 +188,18 @@ onMounted(() => {
   emit("register-stage", gameStageRef.value);
   emit("register-canvas", canvasRef.value);
   document.addEventListener("fullscreenchange", handleFullscreenChange);
+  window.addEventListener("resize", updatePspScale);
+  if (typeof ResizeObserver !== "undefined") {
+    pspStageObserver = new ResizeObserver(updatePspScale);
+    pspStageObserver.observe(gameStageRef.value);
+  }
+  updatePspScale();
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  window.removeEventListener("resize", updatePspScale);
+  pspStageObserver?.disconnect();
   emit("register-stage", null);
   emit("register-canvas", null);
 });
@@ -265,7 +301,8 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <div ref="gameStageRef" class="game-stage">
+    <div ref="gameStageRef" class="game-stage"
+      :style="isPsp ? { '--psp-dpr': pspDpr, '--psp-scale': pspScale } : undefined">
       <canvas ref="canvasRef" class="game-canvas"
         :class="{ 'nes-canvas': activeGame.format === 'NES' || isMasterSystem, 'gba-canvas': isGba, 'gbc-canvas': isHandheld, 'ws-canvas': isWonderSwan, 'pce-canvas': isPce, 'n64-canvas': isN64, 'nds-canvas': isNds, 'psp-canvas': isPsp }" :width="frameWidth"
         :height="frameHeight" :aria-label="isNds ? 'Telas do Nintendo DS (toque na tela inferior)' : 'Tela do jogo'" tabindex="0" @contextmenu.prevent

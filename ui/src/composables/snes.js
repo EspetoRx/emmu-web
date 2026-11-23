@@ -241,7 +241,7 @@ class EmulationWorkerClient {
   }
 }
 
-export async function createEmulator(romBytes, format) {
+export async function createEmulator(romBytes, format, options = {}) {
   const system =
     format === "NES"
       ? "NES"
@@ -271,7 +271,8 @@ export async function createEmulator(romBytes, format) {
     // PPSSPP é uma aplicação Emscripten com DOM/WebGL2/pthreads: não roda no
     // snes.worker.js e o Mesen não implementa PSP. Vai na main thread, igual no
     // web e no desktop.
-    const emulator = createPspAdapter(romBytes);
+    // O PSP precisa do palco da UI para acoplar o canvas do core como overlay.
+    const emulator = createPspAdapter(romBytes, options);
     try {
       await emulator.initialize();
       return emulator;

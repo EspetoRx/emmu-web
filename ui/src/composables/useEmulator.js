@@ -715,9 +715,20 @@ export function useEmulator({
     openMenu.value = null;
 
     let core = null;
+    let romReadFailed = false;
     try {
       await nextTick();
-      const romBytes = new Uint8Array(await game.rom.arrayBuffer());
+      // A leitura da ROM precisa de um tratamento próprio: no WebView desktop
+      // um Blob antigo do IndexedDB pode falhar com NotFoundError. Se esse
+      // erro chegar ao catch externo, ele era confundido com "ROM sumiu" mesmo
+      // quando a falha vinha do save state ou de qualquer outra etapa do core.
+      let romBytes;
+      try {
+        romBytes = new Uint8Array(await game.rom.arrayBuffer());
+      } catch (error) {
+        romReadFailed = true;
+        throw error;
+      }
       if (game.rom instanceof File) {
         const durableRom = new Blob([romBytes], {
           type: "application/octet-stream",
@@ -795,7 +806,12 @@ export function useEmulator({
       void saveCurrentProgress().catch(handleCheckpointError);
       scheduleEmulationFrame(emulationGeneration);
     } catch (error) {
-      console.error("[emmu] openGame:error", { name: game?.fileName, format: game?.format, error });
+      console.error("[emmu] openGame:error", {
+        name: game?.fileName,
+        format: game?.format,
+        romReadFailed,
+        error,
+      });
       if (loadGeneration !== gameLoadGeneration) {
         if (core && snesCore !== core) core.dispose();
         return;
@@ -804,7 +820,7 @@ export function useEmulator({
       if (snesCore === core) setCore(null);
       isPlaying.value = false;
       activeGame.value = null;
-      if (error?.name === "NotFoundError") {
+      if (romReadFailed) {
         const unavailableGame = {
           ...game,
           rom: new Blob(),

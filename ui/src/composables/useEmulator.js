@@ -709,7 +709,7 @@ export function useEmulator({
     onClearPlayerError?.();
     resumedFromSave.value = false;
     stateSaveStatus.value = game.format === "PSP"
-      ? "Autosave desabilitado para este game"
+      ? "Autosave Desabilitado para esse game"
       : "";
     onClearAppError?.();
     openMenu.value = null;

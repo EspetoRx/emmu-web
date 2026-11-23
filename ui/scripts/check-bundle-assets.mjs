@@ -34,6 +34,12 @@ for (const core of cores) {
   if (!found) missing.push(`dist/assets/${core}_bg-*.wasm`);
 }
 
+// O autosave PSP comprime estado/save data e codifica o preview neste worker;
+// sem ele o autosave volta a bloquear a main thread do WebView.
+if (!assets.some((name) => name.startsWith("save.worker-") && name.endsWith(".js"))) {
+  missing.push("dist/assets/save.worker-*.js");
+}
+
 for (const file of ["n64wasm.js", "n64wasm.wasm", "assets.zip"]) {
   if (!existsSync(join(dist, "wasm", "n64", file))) {
     missing.push(`dist/wasm/n64/${file}`);

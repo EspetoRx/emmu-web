@@ -283,7 +283,12 @@ export function useEmulator({
       });
       let preview = game.preview ?? null;
       let refreshedPreview = null;
-      if (canvasRef.value) {
+      // No PSP o preview exige readPixels no canvas WebGL do core. Mesmo com a
+      // codificação PNG no worker, isso sincroniza com a GPU na main thread;
+      // no autosave basta reaproveitar a miniatura existente. O save manual
+      // continua capturando uma nova.
+      const skipAutosavePreview = game.format === "PSP" && !recordHistory;
+      if (canvasRef.value && !skipAutosavePreview) {
         try {
           refreshedPreview = await capturePreview();
           preview = refreshedPreview;

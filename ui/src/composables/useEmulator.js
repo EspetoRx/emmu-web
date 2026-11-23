@@ -185,9 +185,17 @@ export function useEmulator({
     // No desktop o Mesen serve cada frame como imagem BMP via protocolo
     // customizado. O drawImage é feito pelo compositor do navegador, sem
     // trazer os pixels para o JavaScript.
-    if (frame && typeof frame !== "string" && "naturalWidth" in frame) {
-      const width = frameInfo.width || frame.naturalWidth;
-      const height = frameInfo.height || frame.naturalHeight;
+    // Imagem BMP do Mesen ou canvas WebGL do PPSSPP: nesses casos o próprio
+    // compositor faz o blit, sem trazer pixels para o JavaScript.
+    if (
+      frame &&
+      typeof frame !== "string" &&
+      (frame instanceof Image ||
+        (typeof HTMLCanvasElement !== "undefined" &&
+          frame instanceof HTMLCanvasElement))
+    ) {
+      const width = frameInfo.width || frame.naturalWidth || frame.width;
+      const height = frameInfo.height || frame.naturalHeight || frame.height;
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
         canvas.height = height;
@@ -428,7 +436,12 @@ export function useEmulator({
           !activeGame.value
         )
           return;
-        if (frame.frame instanceof Image || frame.frame?.length) {
+        if (
+          frame.frame instanceof Image ||
+          (typeof HTMLCanvasElement !== "undefined" &&
+            frame.frame instanceof HTMLCanvasElement) ||
+          frame.frame?.length
+        ) {
           drawFrame(frame.frame, frame);
         }
         try {

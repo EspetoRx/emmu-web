@@ -2,7 +2,9 @@
 import { ref } from "vue";
 import {
   loadControlBindings,
+  loadPspControlBindings,
   saveControlBindings,
+  savePspControlBindings,
 } from "../stores/libraryStore.js";
 
 export const CONTROL_ACTIONS = [
@@ -54,6 +56,21 @@ export const DEFAULT_CONTROL_BINDINGS = {
   AnalogDown: "NumpadSubtract",
   AnalogLeft: "NumpadMultiply",
   AnalogRight: "NumpadDivide",
+};
+
+// No PSP o analógico é usado para dirigir: setas → analógico, numpad → D-pad.
+// O perfil é persistido à parte (chave "psp-controls") para não alterar os
+// outros consoles.
+export const DEFAULT_PSP_CONTROL_BINDINGS = {
+  ...DEFAULT_CONTROL_BINDINGS,
+  Up: "Numpad8",
+  Down: "Numpad2",
+  Left: "Numpad4",
+  Right: "Numpad6",
+  AnalogUp: "ArrowUp",
+  AnalogDown: "ArrowDown",
+  AnalogLeft: "ArrowLeft",
+  AnalogRight: "ArrowRight",
 };
 
 export const DEFAULT_P2_CONTROL_BINDINGS = {
@@ -269,6 +286,14 @@ export function useControls({ onError, onBeforeOpen } = {}) {
     p4: { ...DEFAULT_P4_CONTROL_BINDINGS },
     p2Enabled: false,
   });
+  const pspControlBindings = ref({
+    p1: { ...DEFAULT_PSP_CONTROL_BINDINGS },
+    p2: { ...DEFAULT_P2_CONTROL_BINDINGS },
+    p3: { ...DEFAULT_P3_CONTROL_BINDINGS },
+    p4: { ...DEFAULT_P4_CONTROL_BINDINGS },
+    p2Enabled: false,
+  });
+  const activeControlProfile = ref("default");
   const activePlayer = ref(1);
   const waitingForControl = ref(null);
   const controlErrorMessage = ref("");
@@ -287,20 +312,33 @@ export function useControls({ onError, onBeforeOpen } = {}) {
 
   async function restoreControls() {
     try {
-      const savedBindings = await loadControlBindings();
+      const [savedBindings, savedPsp] = await Promise.all([
+        loadControlBindings(),
+        loadPspControlBindings(),
+      ]);
       if (savedBindings) {
         const validated = validateControlBindings(savedBindings);
         controlBindings.value = cloneState(validated);
         controlDraft.value = cloneState(validated);
+      }
+      if (savedPsp) {
+        pspControlBindings.value = cloneState(
+          validateControlBindings(savedPsp),
+        );
       }
     } catch (error) {
       onError?.(`Não foi possível carregar os controles: ${errorText(error)}`);
     }
   }
 
-  function openControls(player = 1, { enableP2 = false } = {}) {
+  function openControls(player = 1, { enableP2 = false, format } = {}) {
     onBeforeOpen?.();
-    controlDraft.value = cloneState(controlBindings.value);
+    activeControlProfile.value = format === "PSP" ? "psp" : "default";
+    const source =
+      activeControlProfile.value === "psp"
+        ? pspControlBindings.value
+        : controlBindings.value;
+    controlDraft.value = cloneState(source);
     if (player === 2 && enableP2) controlDraft.value.p2Enabled = true;
     activePlayer.value = Math.max(1, Math.min(4, Number(player) || 1));
     waitingForControl.value = null;
@@ -384,7 +422,10 @@ export function useControls({ onError, onBeforeOpen } = {}) {
 
   function restoreDefaultControls() {
     const defaults = {
-      1: DEFAULT_CONTROL_BINDINGS,
+      1:
+        activeControlProfile.value === "psp"
+          ? DEFAULT_PSP_CONTROL_BINDINGS
+          : DEFAULT_CONTROL_BINDINGS,
       2: DEFAULT_P2_CONTROL_BINDINGS,
       3: DEFAULT_P3_CONTROL_BINDINGS,
       4: DEFAULT_P4_CONTROL_BINDINGS,
@@ -404,8 +445,13 @@ export function useControls({ onError, onBeforeOpen } = {}) {
     }
     try {
       const validated = validateControlBindings(controlDraft.value);
-      await saveControlBindings(validated);
-      controlBindings.value = cloneState(validated);
+      if (activeControlProfile.value === "psp") {
+        await savePspControlBindings(validated);
+        pspControlBindings.value = cloneState(validated);
+      } else {
+        await saveControlBindings(validated);
+        controlBindings.value = cloneState(validated);
+      }
       controlDraft.value = cloneState(validated);
       controlSaveStatus.value = "Controles salvos.";
       controlErrorMessage.value = "";
@@ -414,9 +460,11 @@ export function useControls({ onError, onBeforeOpen } = {}) {
     }
   }
 
-  function findActionByCode(code) {
+  function findActionByCode(code, format) {
+    const bindings =
+      format === "PSP" ? pspControlBindings.value : controlBindings.value;
     for (let n = 1; n <= 4; n++) {
-      const map = controlBindings.value[`p${n}`];
+      const map = bindings[`p${n}`];
       if (!map) continue;
       const action = CONTROL_ACTIONS.find(({ id }) => map[id] === code);
       if (action) return { button: action.id, player: n };
@@ -427,6 +475,8 @@ export function useControls({ onError, onBeforeOpen } = {}) {
   return {
     controlBindings,
     controlDraft,
+    pspControlBindings,
+    activeControlProfile,
     activePlayer,
     waitingForControl,
     controlErrorMessage,

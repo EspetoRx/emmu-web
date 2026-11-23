@@ -2,6 +2,14 @@ import { CONTROL_ACTIONS } from "./useControls.js";
 
 // Fallback para ambientes que disparam eventos de teclado sem `code`
 // (por exemplo, browsers embutidos). Nesses casos o `key` ainda é confiável.
+// Browser embutido sem `code`: no PSP as setas são o analógico.
+const FALLBACK_PSP_DIRECTIONS = {
+  ArrowUp: "AnalogUp",
+  ArrowDown: "AnalogDown",
+  ArrowLeft: "AnalogLeft",
+  ArrowRight: "AnalogRight",
+};
+
 const FALLBACK_KEY_ACTIONS = {
   ArrowUp: "Up",
   ArrowDown: "Down",
@@ -42,8 +50,11 @@ export function useShortcuts({
     // Não substitui um `code` válido que apenas não está associado a um botão.
     if (event?.code) return null;
     const key = typeof event?.key === "string" ? event.key : "";
-    const button =
-      FALLBACK_KEY_ACTIONS[key] ?? FALLBACK_KEY_ACTIONS[key.toLowerCase()];
+    const fallback =
+      activeGame?.value?.format === "PSP" && FALLBACK_PSP_DIRECTIONS[key]
+        ? FALLBACK_PSP_DIRECTIONS
+        : FALLBACK_KEY_ACTIONS;
+    const button = fallback[key] ?? fallback[key.toLowerCase()];
     return button ? { button, player: 1 } : null;
   }
 

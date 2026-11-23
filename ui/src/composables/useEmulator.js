@@ -200,7 +200,11 @@ export function useEmulator({
         canvas.width = width;
         canvas.height = height;
       }
-      context.drawImage(frame, 0, 0);
+      // Sem reamostragem: o PSP entrega 480×272 nativos. Se o ResizeObserver
+      // do core ainda estiver ajustando o buffer, o smoothing deixa o texto
+      // ilegível; drawImage com destino explícito evita escalas intermediárias.
+      context.imageSmoothingEnabled = false;
+      context.drawImage(frame, 0, 0, width, height);
       return;
     }
 

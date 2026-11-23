@@ -275,3 +275,19 @@ export function saveControlBindings(bindings) {
     store.put({ key: "controls", value: bindings });
   });
 }
+
+// O PSP usa um perfil próprio: as setas comandam o analógico (dirigir) e o
+// numpad comanda o D-pad (menu). Manter isso separado evita trocar o esquema
+// de todos os outros consoles.
+export function loadPspControlBindings() {
+  return runTransaction(SETTINGS_STORE, "readonly", (store, setResult) => {
+    const request = store.get("psp-controls");
+    request.onsuccess = () => setResult(request.result?.value ?? null);
+  });
+}
+
+export function savePspControlBindings(bindings) {
+  return runTransaction(SETTINGS_STORE, "readwrite", (store) => {
+    store.put({ key: "psp-controls", value: bindings });
+  });
+}

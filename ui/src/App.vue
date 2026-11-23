@@ -327,7 +327,8 @@ const {
   waitingForControl,
   captureControlKey,
   closeControls,
-  findActionByCode,
+  findActionByCode: (code) =>
+    findActionByCode(code, activeGame.value?.format),
   activeGame,
   setButton,
   openFilePicker,
@@ -391,7 +392,7 @@ onBeforeUnmount(() => {
     <AppHeader :is-native-desktop="isNativeDesktop" :is-mobile-device="isMobileDevice" :page-title="pageTitle"
       :open-menu="openMenu" :has-active-game="Boolean(activeGame)" :games-count="games.length" @toggle-menu="toggleMenu"
       @close-menu="openMenu = null" @open-file-picker="openFilePicker" @return-to-library="returnToLibrary"
-      @request-clear-library="requestClearLibrary" @open-controls="openControls(1)" />
+      @request-clear-library="requestClearLibrary" @open-controls="openControls(1, { format: activeGame?.format })" />
 
     <input ref="romInput" class="visually-hidden" type="file" multiple accept=".nes,.sfc,.smc,.fig,.gba,.gb,.gbc,.gg,.sms,.ws,.wsc,.pce,.nds,.z64,.n64,.v64,.psp,.iso,.cso,.chd,.pbp,.elf,.prx,.zip"
       aria-label="Abrir arquivos de jogos" tabindex="-1" @change="addRom" />
@@ -408,8 +409,8 @@ onBeforeUnmount(() => {
     <Player v-else :active-game="activeGame" :frame-width="frameWidth" :frame-height="frameHeight" :has-core="hasCore" :is-playing="isPlaying"
       :is-saving-state="isSavingState" :is-restarting="isRestarting" :is-mobile-device="isMobileDevice"
       :audio-volume="audioVolume" :show-audio-controls="showAudioControls" :p2-enabled="controlBindings.p2Enabled"
-      @return-to-library="returnToLibrary" @restart="restartGame" @open-p1-controls="(p) => openControls(typeof p === 'number' ? p : 1)"
-      @open-p2-controls="openControls(2, { enableP2: true })"
+      @return-to-library="returnToLibrary" @restart="restartGame" @open-p1-controls="(p) => openControls(typeof p === 'number' ? p : 1, { format: activeGame?.format })"
+      @open-p2-controls="openControls(2, { enableP2: true, format: activeGame?.format })"
       @toggle-audio-controls="showAudioControls = !showAudioControls" @set-audio-volume="handleSetAudioVolume"
       @save-state="saveGameState" @set-button="setButton" @set-touch="setTouch" @end-touch="endTouch"
       @register-stage="gameStageRef = $event" @register-canvas="setCanvasElement" />

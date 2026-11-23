@@ -280,6 +280,11 @@ export function useEmulator({
     const game = activeGame.value;
     const core = snesCore;
     if (!core || !game) return;
+    // No PSP o PPSSPP roda na main thread: cmd_save_state() bloqueia essa
+    // thread por segundos e derruba áudio/vídeo. O autosave (periódico, ao
+    // sair de segundo plano e ao fechar) fica desabilitado; o save manual
+    // (recordHistory) continua disponível.
+    if (!recordHistory && game.format === "PSP") return;
     if (checkpointPromise) {
       const pendingCheckpoint = checkpointPromise;
       const pendingRecordsHistory = checkpointRecordsHistory;
@@ -703,7 +708,9 @@ export function useEmulator({
     selectedGameId.value = game.id;
     onClearPlayerError?.();
     resumedFromSave.value = false;
-    stateSaveStatus.value = "";
+    stateSaveStatus.value = game.format === "PSP"
+      ? "Autosave desabilitado para este game"
+      : "";
     onClearAppError?.();
     openMenu.value = null;
 
